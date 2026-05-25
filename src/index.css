@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Apfel Grotezk — self-hosted. The site runs on 700 (the bold); the hero <h1>
+   uses the heavy 900 "Satt" cut. */
+@font-face {
+  font-family: 'Apfel Grotezk';
+  src:
+    url('/apfel-grotezk_5.2.5/webfonts/apfel-grotezk-latin-400-normal.woff2') format('woff2'),
+    url('/apfel-grotezk_5.2.5/webfonts/apfel-grotezk-latin-400-normal.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Apfel Grotezk';
+  src:
+    url('/apfel-grotezk_5.2.5/webfonts/apfel-grotezk-latin-700-normal.woff2') format('woff2'),
+    url('/apfel-grotezk_5.2.5/webfonts/apfel-grotezk-latin-700-normal.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Apfel Grotezk';
+  src:
+    url('/apfel-grotezk-main/fonts/ApfelGrotezk-Satt.woff2') format('woff2'),
+    url('/apfel-grotezk-main/fonts/ApfelGrotezk-Satt.woff') format('woff');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-sans: 'Apfel Grotezk', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  /* Match the footer's brand blue — when the main content scrolls off,
+     the bottom of the page reveals the fixed footer beneath; setting the
+     body to the same blue prevents any flash of cream during the reveal. */
+  background: #157c99;
+  color: #000000;
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+  font-weight: 700 !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h2, h3, h4, h5, h6 {
+  font-weight: 700 !important;
+}
+
+/* The hero heading — the only <h1> on the page — uses the heavy 900 Satt cut.
+   `h1 span` is required because the heading text sits inside <span> wrappers
+   (the Reveal animation); without it the `span` rule above forces those back
+   to 700. The descendant selector out-specifies the bare `span` rule. */
+h1,
+h1 span {
+  font-weight: 900 !important;
+}
+
+p, span, a, button {
+  font-weight: 700 !important;
+}
+
+/* Opt-in heavy 900 "Satt" weight — out-specifies the blanket h2-h6 / span
+   rules above, for headings meant to match the hero's heavy weight. The
+   `.font-satt span` selector keeps the weight when the text is split into
+   <span> words (e.g. the FallingText effect). */
+.font-satt,
+.font-satt span {
+  font-weight: 900 !important;
+}
+
+/* Horizontal marquee loop — the content is duplicated, so translating by half
+   its width gives a seamless cycle (used by the tilted Bestsellers marquee). */
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}

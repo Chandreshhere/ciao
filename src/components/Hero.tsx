@@ -1,0 +1,113 @@
+import { motion, useScroll, useTransform, useMotionTemplate, easeOut } from 'framer-motion'
+import { useRef, type ReactNode } from 'react'
+
+// One line of hero text that reveals on load: it sits in an overflow clip and
+// slides up into place from below — landing exactly where it sits, so it
+// "reveals in line" rather than flying in. Plays on mount (i.e. on reload).
+// The py/-my pair widens the clip box without shifting layout, so tight
+// leading never clips the glyphs mid-reveal.
+function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
+  return (
+    <span className="block overflow-hidden py-[0.12em] -my-[0.12em]">
+      <motion.span
+        className="block"
+        initial={{ y: '130%' }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.9, delay, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {children}
+      </motion.span>
+    </span>
+  )
+}
+
+// The donut itself lives in <DonutScene /> — a fixed layer driven by scroll. The
+// hero owns the scroll "room": the tall wrapper + sticky inner keep the
+// background and text pinned for one viewport (while the donut zooms), then
+// release for a second viewport (while the donut flips and scrolls away with
+// the page like normal content).
+export default function Hero() {
+  const sectionRef = useRef<HTMLElement>(null)
+
+  // Progress across the whole 200vh hero: 0 at the top, 0.5 once the pinned
+  // viewport ends, 1 once the hero has fully scrolled away.
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start start', 'end start'],
+  })
+
+  // The background image zooms in across the whole scroll.
+  const imageScale = useTransform(scrollYProgress, [0, 1], [1.25, 1.5])
+  // Hero text holds still while pinned, then drifts up at varying rates once
+  // the hero unpins (0.5 -> 1) — a little parallax.
+  const headlineY = useTransform(scrollYProgress, [0.5, 1], [0, -100])
+  const topRightY = useTransform(scrollYProgress, [0.5, 1], [0, -140])
+  const bottomY = useTransform(scrollYProgress, [0.5, 1], [0, -70])
+  // Radius, image parallax and blur hold still through the pinned half and
+  // only kick in once the hero unpins. The bottom corners round off quickly
+  // and smoothly (eased, over a short slice of the unpin); parallax and blur
+  // take the whole back half.
+  const radius = useTransform(scrollYProgress, [0.5, 0.72], [0, 64], { ease: easeOut })
+  const imageY = useTransform(scrollYProgress, [0.5, 1], ['0%', '8%'])
+  const blurPx = useTransform(scrollYProgress, [0.5, 1], [0, 6])
+  const imageFilter = useMotionTemplate`blur(${blurPx}px)`
+
+  return (
+    <section ref={sectionRef} className="relative h-[200vh] w-full">
+      <motion.div
+        style={{ borderBottomLeftRadius: radius, borderBottomRightRadius: radius }}
+        className="sticky top-0 h-screen w-full overflow-hidden"
+      >
+        <div className="absolute inset-0 overflow-hidden">
+          <motion.img
+            src="/hero.png"
+            alt="French Patisserie"
+            className="w-full h-full object-cover"
+            style={{
+              objectPosition: 'left center',
+              x: '-1.2%',
+              scale: imageScale,
+              y: imageY,
+              filter: imageFilter,
+            }}
+          />
+        </div>
+
+        {/* Main hero statement — bottom-left, big and uppercase */}
+        <div className="absolute left-16 bottom-12 z-10">
+          <motion.div style={{ y: headlineY }}>
+            {/* Heavy 900 "Satt" cut of Apfel Grotezk — wired up in index.css. */}
+            <h1 className="text-[13vw] md:text-[9vw] font-black uppercase leading-[0.9] tracking-wide text-white text-left">
+              <Reveal delay={0.15}>Crafted in</Reveal>
+              <Reveal delay={0.28}>Paris.</Reveal>
+            </h1>
+          </motion.div>
+        </div>
+
+        {/* Product line — moved to the top-right */}
+        <div className="absolute right-16 top-32 z-10 max-w-xl text-right">
+          <motion.div style={{ y: topRightY }}>
+            <p className="text-white text-2xl md:text-3xl leading-relaxed font-black">
+              <Reveal delay={0.4}>Modern French pâtisserie</Reveal>
+              <Reveal delay={0.5}>macarons, éclairs, entremets,</Reveal>
+              <Reveal delay={0.6}>and bespoke celebration cakes.</Reveal>
+            </p>
+          </motion.div>
+        </div>
+
+        {/* Supporting text — bottom-right */}
+        <div className="absolute bottom-12 right-16 z-10 max-w-md text-right">
+          <motion.div style={{ y: bottomY }}>
+            <p className="text-white text-sm md:text-base tracking-[0.3em] mb-4 font-black">
+              <Reveal delay={0.5}>FRENCH PÂTISSERIE · GURGAON</Reveal>
+            </p>
+            <p className="text-white text-2xl md:text-3xl font-black leading-tight">
+              <Reveal delay={0.62}>Made for You.</Reveal>
+            </p>
+          </motion.div>
+        </div>
+      </motion.div>
+
+    </section>
+  )
+}

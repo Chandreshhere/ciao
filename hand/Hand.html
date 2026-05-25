@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hand — Come here (rigged 3D)</title>
+<style>
+  :root {
+    --bg-0: #faf7f1;
+    --bg-1: #ece5d6;
+    --ink: #1f1b17;
+    --muted: #6d6258;
+    --card: rgba(255,255,255,0.62);
+    --line: rgba(31,27,23,0.10);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(120% 100% at 50% 5%, #ffffff 0%, var(--bg-0) 55%, var(--bg-1) 100%);
+    color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+
+  .ui {
+    position: fixed; z-index: 5;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 18px 40px -22px rgba(31,27,23,0.30);
+  }
+  .title { top: 24px; left: 24px; padding: 13px 16px; max-width: 340px; }
+  .title h1 { margin: 0 0 4px; font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
+  .title p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .title .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: oklch(0.62 0.14 25); margin-right: 8px; vertical-align: 1px; }
+
+  .poses {
+    bottom: 24px; left: 50%; transform: translateX(-50%);
+    padding: 8px; display: flex; gap: 6px; flex-wrap: wrap;
+    max-width: calc(100vw - 48px); justify-content: center;
+  }
+  .poses button {
+    appearance: none; border: 1px solid transparent;
+    background: transparent; color: var(--ink);
+    font: 500 12px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    letter-spacing: 0.01em; padding: 9px 13px; border-radius: 9px;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease;
+  }
+  .poses button:hover { background: rgba(31,27,23,0.06); }
+  .poses button.active { background: var(--ink); color: var(--bg-0); }
+
+  .controls { top: 24px; right: 24px; padding: 14px 16px 12px; width: 240px; }
+  .controls h2 { margin: 0 0 10px; font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; font-size: 12px; }
+  .row label { color: var(--muted); }
+  .row input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 130px; height: 3px;
+    background: rgba(31,27,23,0.18); border-radius: 99px; outline: none;
+  }
+  .row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--ink); border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.25); cursor: pointer;
+  }
+  .row input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--ink); border: 2px solid #fff; cursor: pointer;
+  }
+  .seg { display: inline-flex; padding: 2px; background: rgba(31,27,23,0.06); border-radius: 8px; }
+  .seg button {
+    appearance: none; border: 0; background: transparent;
+    font: 500 11px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    padding: 6px 9px; border-radius: 6px; color: var(--muted);
+    cursor: pointer;
+  }
+  .seg button.on { background: var(--ink); color: #fff; }
+
+  .hint {
+    position: fixed; bottom: 24px; right: 24px; z-index: 5;
+    font-size: 11px; color: var(--muted);
+    background: rgba(255,255,255,0.42);
+    border: 1px solid var(--line);
+    border-radius: 99px; padding: 6px 12px;
+    backdrop-filter: blur(8px);
+  }
+
+  body[data-bg="white"] { background: #ffffff; }
+  body[data-bg="dark"] {
+    background: radial-gradient(120% 100% at 50% 0%, #2a241d 0%, #16120e 70%, #0c0a08 100%);
+    color: #ebe2d6;
+    --muted: #9a8e7f;
+    --line: rgba(255,255,255,0.10);
+    --card: rgba(20,16,12,0.55);
+  }
+
+  #loading {
+    position: fixed; inset: 0; z-index: 10;
+    display: grid; place-items: center;
+    background: inherit;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  #loading.gone { opacity: 0; pointer-events: none; transition: opacity .4s ease; }
+
+  @media (max-width: 720px) {
+    .title { top: 12px; left: 12px; right: 12px; max-width: none; }
+    .controls { top: auto; bottom: 80px; right: 12px; left: 12px; width: auto; }
+    .poses { bottom: 12px; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body data-bg="light">
+  <div id="stage"></div>
+
+  <div id="loading">Loading hand…</div>
+
+  <div class="ui title">
+    <h1><span class="dot"></span>Come here · rigged 3D hand</h1>
+    <p>Drag to rotate · scroll to zoom · all five fingers driven from real bones. Default loop curls inward like grabbing a donut.</p>
+  </div>
+
+  <div class="ui controls">
+    <h2>Tweaks</h2>
+    <div class="row">
+      <label>Background</label>
+      <div class="seg" id="bgSeg">
+        <button data-v="light" class="on">Warm</button>
+        <button data-v="white">White</button>
+        <button data-v="dark">Dark</button>
+      </div>
+    </div>
+    <div class="row"><label>Speed</label><input id="speed" type="range" min="30" max="220" value="100"></div>
+    <div class="row"><label>Curl depth</label><input id="depth" type="range" min="40" max="140" value="100"></div>
+    <div class="row"><label>Wrist sway</label><input id="sway" type="range" min="0" max="100" value="55"></div>
+  </div>
+
+  <div class="ui poses" id="poses"></div>
+  <div class="hint">drag to rotate · scroll to zoom</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader }   from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ----------------------- Renderer / scene ----------------------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
+camera.position.set(0, 1.5, 9);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minDistance = 1.5;
+controls.maxDistance = 40;
+
+/* Lights — soft photo-studio rig */
+const key = new THREE.DirectionalLight(0xfff1d8, 2.4);
+key.position.set(3.2, 5.0, 4.0);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.bias = -0.00035;
+key.shadow.radius = 7;
+key.shadow.camera.left = -4; key.shadow.camera.right = 4;
+key.shadow.camera.top = 4;  key.shadow.camera.bottom = -4;
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 25;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xd6e2ff, 0.55);
+fill.position.set(-4, 2.5, 3);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffd0a0, 0.85);
+rim.position.set(-2.5, 3.5, -4);
+scene.add(rim);
+scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+
+/* Soft shadow floor */
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(12, 64),
+  new THREE.ShadowMaterial({ opacity: 0.18 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+/* ----------------------- Load the rigged hand ----------------------- */
+// Bone-name mapping discovered by inspecting the GLB:
+//   • All five finger roots are children of Bone.001_01 (palm).
+//   • By X-offset (left→right) and chain length we identify the fingers:
+//       index  X = -0.299  length 1.17
+//       middle X = -0.025  length 1.28  (longest, as expected)
+//       ring   X = +0.197  length 1.16
+//       pinky  X = +0.380  length 0.98  (shortest)
+//   • Thumb sits much lower on the palm (Bone.003_014).
+const BONE_NAMES = {
+  wrist:  'Bone_00',
+  palm:   'Bone001_01',
+  index:  ['Bone009_02', 'Bone010_03', 'Bone011_04'],
+  middle: ['Bone012_05', 'Bone013_06', 'Bone014_07'],
+  ring:   ['Bone015_08', 'Bone016_09', 'Bone017_010'],
+  pinky:  ['Bone018_011','Bone019_012','Bone020_013'],
+  thumb:  ['Bone003_014','Bone004_015','Bone005_016'],
+};
+
+const fingerNames = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+const bones = { fingers: {} };
+const restRotations = new WeakMap();  // bone → {x,y,z} of bind pose
+
+let mesh = null;
+let model = null;
+const curlAxisByFinger = {};   // per-finger {axis, sign} for curling inward
+
+const loader = new GLTFLoader();
+// We fetch + parse manually so we can surface real error messages
+// (the default loader can swallow them as empty objects).
+fetch('assets/hand.glb')
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+  .then(ab => new Promise((resolve, reject) => loader.parse(ab, '', resolve, reject)))
+  .then((gltf) => {
+  model = gltf.scene;
+  scene.add(model);
+
+  // Find named bones
+  model.traverse(o => {
+    if (o.isBone || o.type === 'Bone' || o.isObject3D) {
+      if (o.name === BONE_NAMES.wrist) bones.wrist = o;
+      if (o.name === BONE_NAMES.palm)  bones.palm  = o;
+      for (const f of fingerNames) {
+        const idx = BONE_NAMES[f].indexOf(o.name);
+        if (idx >= 0) {
+          if (!bones.fingers[f]) bones.fingers[f] = [];
+          bones.fingers[f][idx] = o;
+        }
+      }
+    }
+    if (o.isMesh) {
+      mesh = o;
+      o.castShadow = true;
+      o.receiveShadow = true;
+      // Subtle skin tweaks
+      if (o.material) {
+        o.material.roughness = Math.max(0.45, (o.material.roughness ?? 0.6));
+        if (o.material.metalness !== undefined) o.material.metalness = 0;
+      }
+    }
+  });
+
+  // Cache rest rotations of every finger bone so we can animate
+  // relative to the model's bind pose instead of overwriting it.
+  for (const f of fingerNames) {
+    for (const b of bones.fingers[f]) {
+      restRotations.set(b, { x: b.rotation.x, y: b.rotation.y, z: b.rotation.z });
+    }
+  }
+  if (bones.wrist) restRotations.set(bones.wrist, { x: bones.wrist.rotation.x, y: bones.wrist.rotation.y, z: bones.wrist.rotation.z });
+  if (bones.palm)  restRotations.set(bones.palm,  { x: bones.palm.rotation.x,  y: bones.palm.rotation.y,  z: bones.palm.rotation.z  });
+
+  // ----- Auto-detect the curl axis PER FINGER -----
+  // Each finger's bind-pose may have a different local orientation
+  // (especially the thumb, which is rotated relative to the other four).
+  for (const f of fingerNames) {
+    curlAxisByFinger[f] = detectCurlAxisForFinger(f);
+  }
+  console.log('curl axes:', curlAxisByFinger);
+
+  // Frame the camera on the model's bounding box.
+  frameCamera();
+
+  // Start animating in our default pose
+  setPose('beckon');
+  const ld = document.getElementById('loading');
+  ld.classList.add('gone');
+  setTimeout(() => ld.remove(), 500);
+
+  // expose for debugging
+  window.__hand = { scene, camera, model, bones, controls, renderer };
+  const box = new THREE.Box3().setFromObject(model);
+  console.log('model bbox:', JSON.stringify({ min: box.min, max: box.max }),
+              'scale:', model.scale.x,
+              'camera:', camera.position,
+              'target:', controls.target);
+})
+.catch((err) => {
+  console.error('GLTF load failed:', err && err.message ? err.message : err);
+  document.getElementById('loading').textContent = 'Could not load hand.glb — ' + (err && err.message || 'unknown error');
+});
+
+/* ---------------- Frame camera on the loaded model ---------------- */
+function frameCamera() {
+  if (!mesh) return;
+  // First make sure transforms are clean
+  model.position.set(0, 0, 0);
+  model.scale.setScalar(1);
+  model.updateMatrixWorld(true);
+
+  // setFromObject(mesh) walks only the mesh (no bones, no wrappers),
+  // so it returns the true rendered extent — not a bogus huge box.
+  let box = new THREE.Box3().setFromObject(mesh);
+  let size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+  // Normalize to a fixed target height of ~2.4 units
+  const targetSize = 2.4;
+  model.scale.setScalar(targetSize / maxDim);
+  model.updateMatrixWorld(true);
+
+  // Re-measure, then center the model at the world origin
+  box = new THREE.Box3().setFromObject(mesh);
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.sub(center);
+  model.updateMatrixWorld(true);
+
+  // Final box for floor placement
+  box = new THREE.Box3().setFromObject(mesh);
+  floor.position.y = box.min.y - 0.05;
+
+  // Back the camera out so the hand occupies ~55% of the vertical FOV
+  const halfFov = camera.fov * Math.PI / 360;
+  const dist = (targetSize / 2) / Math.tan(halfFov) * 1.8;
+  camera.position.set(dist * 0.25, 0.4, dist);
+  controls.target.set(0, 0, 0);
+  controls.update();
+}
+
+/* ---------------- Curl-axis auto-detection ---------------- */
+function detectCurlAxisForFinger(fingerName) {
+  // For a given finger, find the local axis on the proximal bone whose
+  // rotation moves the fingertip toward the wrist (= curl inward).
+  const finger = bones.fingers[fingerName];
+  if (!finger || !finger[0] || !bones.wrist) return { axis: 'x', sign: 1 };
+
+  scene.updateMatrixWorld(true);
+  const tipBefore = new THREE.Vector3();
+  finger[2].getWorldPosition(tipBefore);
+  const wristPos = new THREE.Vector3();
+  bones.wrist.getWorldPosition(wristPos);
+  // "Close direction" — from fingertip toward wrist
+  const closeDir = wristPos.clone().sub(tipBefore).normalize();
+
+  let best = { axis: 'x', sign: 1, score: -Infinity };
+  for (const ax of ['x', 'y', 'z']) {
+    for (const sg of [1, -1]) {
+      const rest = restRotations.get(finger[0]);
+      finger[0].rotation.set(rest.x, rest.y, rest.z);
+      finger[0].rotation[ax] = rest[ax] + 0.9 * sg;
+      finger[0].updateMatrixWorld(true);
+
+      const tipAfter = new THREE.Vector3();
+      finger[2].getWorldPosition(tipAfter);
+      const delta = tipAfter.clone().sub(tipBefore);
+      const score = delta.dot(closeDir);
+      if (score > best.score) best = { axis: ax, sign: sg, score };
+    }
+  }
+  // Restore rest pose
+  const r = restRotations.get(finger[0]);
+  finger[0].rotation.set(r.x, r.y, r.z);
+  finger[0].updateMatrixWorld(true);
+  return best;
+}
+
+/* ---------------- Pose system ---------------- */
+// per finger: target curl 0..1 for each of the 3 phalanx bones
+// (proximal, middle, distal). 0 = open, 1 = fully curled.
+const POSES = {
+  open: {
+    thumb:  [0.05, 0.05, 0.05],
+    index:  [0.04, 0.04, 0.04],
+    middle: [0.04, 0.04, 0.04],
+    ring:   [0.04, 0.04, 0.04],
+    pinky:  [0.04, 0.04, 0.04],
+    wrist:  { x: 0, y: 0, z: 0 },
+  },
+
+  // "Grab a donut" — the come-here / cupping gesture.
+  // All five fingertips curve toward a point above the palm.
+  grab: {
+    thumb:  [0.45, 0.55, 0.50],
+    index:  [0.55, 0.60, 0.55],
+    middle: [0.55, 0.62, 0.58],
+    ring:   [0.55, 0.60, 0.55],
+    pinky:  [0.50, 0.55, 0.50],
+    wrist:  { x: 0, y: 0, z: 0 },
+  },
+
+  // "Come here" beckon — index extended pointing out, others curled in,
+  // index repeatedly curls and uncurls (handled in the per-frame loop).
+  beckon: {
+    thumb:  [0.55, 0.65, 0.55],
+    index:  [0.10, 0.10, 0.10],
+    middle: [0.92, 0.95, 0.85],
+    ring:   [0.92, 0.95, 0.85],
+    pinky:  [0.92, 0.95, 0.85],
+    wrist:  { x: 0, y: 0, z: 0 },
+  },
+
+  fist: {
+    thumb:  [0.65, 0.85, 0.85],
+    index:  [0.92, 0.95, 0.95],
+    middle: [0.92, 0.95, 0.95],
+    ring:   [0.92, 0.95, 0.95],
+    pinky:  [0.92, 0.95, 0.95],
+    wrist:  { x: 0, y: 0, z: 0 },
+  },
+
+  peace: {
+    thumb:  [0.55, 0.75, 0.65],
+    index:  [0.05, 0.05, 0.05],
+    middle: [0.05, 0.05, 0.05],
+    ring:   [0.92, 0.95, 0.85],
+    pinky:  [0.92, 0.95, 0.85],
+    wrist:  { x: 0, y: 0, z: 0 },
+  },
+
+  point: {
+    thumb:  [0.60, 0.70, 0.55],
+    index:  [0.03, 0.03, 0.03],
+    middle: [0.92, 0.95, 0.85],
+    ring:   [0.92, 0.95, 0.85],
+    pinky:  [0.92, 0.95, 0.85],
+    wrist:  { x: 0, y: 0, z: 0 },
+  },
+};
+
+// per-finger maximum curl angles (rad) per phalanx — proximal, middle, distal
+const MAX_PER_SEGMENT = {
+  thumb:  [0.85, 1.05, 0.85],
+  index:  [1.40, 1.45, 1.00],
+  middle: [1.45, 1.50, 1.05],
+  ring:   [1.40, 1.45, 1.00],
+  pinky:  [1.30, 1.40, 0.95],
+};
+
+// State
+const curState = {};
+const tgtState = {};
+fingerNames.forEach(f => {
+  curState[f] = [0, 0, 0];
+  tgtState[f] = [0, 0, 0];
+});
+let activePoseKey = 'beckon';
+let wristCur = { x: 0, y: 0, z: 0 };
+let wristTgt = { x: 0, y: 0, z: 0 };
+
+function setPose(key) {
+  const p = POSES[key];
+  if (!p) return;
+  activePoseKey = key;
+  for (const f of fingerNames) tgtState[f] = p[f].slice();
+  wristTgt = { ...p.wrist };
+  document.querySelectorAll('#poses button').forEach(b => b.classList.toggle('active', b.dataset.k === key));
+}
+
+function applyToBones(extras) {
+  if (!bones.fingers.index || !bones.fingers.index.length) return;
+
+  for (const f of fingerNames) {
+    const chain = bones.fingers[f];
+    if (!chain) continue;
+    const ca = curlAxisByFinger[f] || { axis: 'x', sign: 1 };
+    const maxes = MAX_PER_SEGMENT[f];
+    const cur = curState[f];
+    const extra = (extras && extras[f]) || 0;
+    for (let i = 0; i < 3; i++) {
+      const b = chain[i];
+      if (!b) continue;
+      const rest = restRotations.get(b);
+      // Reset to rest, then add curl on this finger's detected axis
+      b.rotation.x = rest.x; b.rotation.y = rest.y; b.rotation.z = rest.z;
+      const amount = (cur[i] + extra) * maxes[i] * ca.sign;
+      b.rotation[ca.axis] = rest[ca.axis] + amount;
+    }
+  }
+
+  if (bones.wrist) {
+    const rw = restRotations.get(bones.wrist);
+    bones.wrist.rotation.x = rw.x + wristCur.x;
+    bones.wrist.rotation.y = rw.y + wristCur.y;
+    bones.wrist.rotation.z = rw.z + wristCur.z;
+  }
+}
+
+/* ---------------- UI: poses ---------------- */
+const poseOrder = [
+  ['beckon', 'Come here'],
+  ['grab',   'Grab donut'],
+  ['open',   'Open'],
+  ['point',  'Point'],
+  ['peace',  'Peace'],
+  ['fist',   'Fist'],
+];
+const posesEl = document.getElementById('poses');
+poseOrder.forEach(([k, label]) => {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.dataset.k = k;
+  if (k === 'beckon') b.classList.add('active');
+  b.addEventListener('click', () => setPose(k));
+  posesEl.appendChild(b);
+});
+
+/* ---------------- UI: controls ---------------- */
+const speedEl = document.getElementById('speed');
+const depthEl = document.getElementById('depth');
+const swayEl  = document.getElementById('sway');
+
+document.querySelectorAll('#bgSeg button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#bgSeg button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    document.body.dataset.bg = b.dataset.v;
+  });
+});
+
+/* ---------------- Cursor reactivity ---------------- */
+const pointer = new THREE.Vector2(0.5, 0.5);
+window.addEventListener('pointermove', e => {
+  pointer.x = e.clientX / window.innerWidth;
+  pointer.y = e.clientY / window.innerHeight;
+});
+
+/* ---------------- Resize ---------------- */
+function resize() {
+  const w = stage.clientWidth || window.innerWidth;
+  const h = stage.clientHeight || window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+/* ---------------- Animate ---------------- */
+const clock = new THREE.Clock();
+function tick() {
+  const dt = Math.min(0.05, clock.getDelta());
+  const t = clock.elapsedTime;
+  const speed = parseFloat(speedEl.value) / 100;
+  const depth = parseFloat(depthEl.value) / 100;
+  const sway  = parseFloat(swayEl.value)  / 100;
+
+  // Ease current → target
+  const ease = 1 - Math.pow(0.0005, dt);
+  for (const f of fingerNames) {
+    for (let i = 0; i < 3; i++) {
+      curState[f][i] += (tgtState[f][i] * depth - curState[f][i]) * ease;
+    }
+  }
+  wristCur.x += (wristTgt.x - wristCur.x) * ease;
+  wristCur.y += (wristTgt.y - wristCur.y) * ease;
+  wristCur.z += (wristTgt.z - wristCur.z) * ease;
+
+  // Per-pose live motion (extras blend on top of the cur state)
+  const extras = { thumb: 0, index: 0, middle: 0, ring: 0, pinky: 0 };
+
+  if (activePoseKey === 'grab') {
+    // Cycle: open → close → hold → open. Smoothstep'd.
+    const cycle = 1.6 / speed; // seconds
+    const phase = (t / cycle) % 1;            // 0..1
+    // Curl curve: rise from 0..0.4, hold 0.4..0.7, fall 0.7..1
+    let k;
+    if (phase < 0.4)      k = phase / 0.4;
+    else if (phase < 0.7) k = 1;
+    else                  k = 1 - (phase - 0.7) / 0.3;
+    k = k * k * (3 - 2 * k); // smoothstep
+    // Map k from 0..1 to range that adds an extra closing pulse on top
+    // of the static "grab" target (which is already partly curled).
+    const pulse = (k - 0.3) * 0.55;  // -0.165..+0.385
+    for (const f of fingerNames) extras[f] = pulse;
+    // Subtle wrist nod toward the camera as the hand closes
+    wristCur.x += Math.sin((t / cycle) * Math.PI * 2) * 0.05 * sway;
+    wristCur.z += Math.sin((t / cycle) * Math.PI * 2 + 1.2) * 0.04 * sway;
+  } else if (activePoseKey === 'beckon') {
+    // Strong, repeated index curl, sympathetic motion on others
+    const cycle = 1.2 / speed;
+    const phase = (Math.sin((t / cycle) * Math.PI * 2) + 1) * 0.5;
+    const k = phase * phase * (3 - 2 * phase);
+    extras.index  = k * 0.65;
+    extras.middle = k * 0.05;
+    extras.ring   = k * 0.04;
+    extras.pinky  = k * 0.03;
+  } else if (activePoseKey === 'open') {
+    // Idle breathing
+    for (const f of fingerNames) {
+      extras[f] = Math.sin(t * 0.9 * speed + f.length) * 0.04;
+    }
+  } else {
+    // Small micro-motion
+    for (const f of fingerNames) extras[f] = Math.sin(t * 1.2 * speed + f.length) * 0.02;
+  }
+
+  applyToBones(extras);
+
+  // Wrist sway only as gentle idle motion — do NOT fight OrbitControls
+  // with cursor-driven rotation. The user should be free to drag.
+  if (model) {
+    const baseY = Math.sin(t * 0.5 * speed) * 0.05 * sway;
+    const baseX = Math.sin(t * 0.7 * speed + 1.2) * 0.04 * sway;
+    // Stored on a child group target so dragging doesn't get overwritten.
+    model.rotation.y = baseY;
+    model.rotation.x = baseX;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>

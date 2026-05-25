@@ -1,0 +1,801 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>3D Hand — Interactive</title>
+<style>
+  :root {
+    --bg-0: #fbfaf7;
+    --bg-1: #f1ece3;
+    --ink: #1d1916;
+    --muted: #6b5f52;
+    --accent: oklch(0.62 0.14 25);
+    --card: rgba(255,255,255,0.65);
+    --line: rgba(29,25,22,0.10);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(120% 90% at 50% 0%, #ffffff 0%, var(--bg-0) 55%, var(--bg-1) 100%);
+    color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #stage {
+    position: fixed; inset: 0;
+    display: block;
+  }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+
+  .ui {
+    position: fixed; z-index: 5;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 18px 40px -22px rgba(29,25,22,0.35), 0 1px 0 rgba(255,255,255,0.6) inset;
+  }
+
+  .title {
+    top: 24px; left: 24px;
+    padding: 14px 18px;
+    max-width: 360px;
+  }
+  .title h1 {
+    margin: 0 0 4px;
+    font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .title p {
+    margin: 0;
+    font-size: 12px; color: var(--muted); line-height: 1.45;
+  }
+  .title .dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); margin-right: 7px; vertical-align: 1px;
+  }
+
+  .poses {
+    bottom: 24px; left: 50%; transform: translateX(-50%);
+    padding: 8px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+    max-width: calc(100vw - 48px);
+    justify-content: center;
+  }
+  .poses button {
+    appearance: none;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink);
+    font: 500 12px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    letter-spacing: 0.01em;
+    padding: 9px 13px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
+  }
+  .poses button:hover { background: rgba(29,25,22,0.06); }
+  .poses button.active {
+    background: var(--ink); color: var(--bg-0);
+  }
+
+  .controls {
+    top: 24px; right: 24px;
+    padding: 14px 16px 12px;
+    width: 240px;
+  }
+  .controls h2 {
+    margin: 0 0 10px;
+    font-size: 11px; font-weight: 600;
+    color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 7px 0;
+    font-size: 12px;
+  }
+  .row label { color: var(--muted); }
+  .row input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 130px; height: 3px;
+    background: rgba(29,25,22,0.18); border-radius: 99px; outline: none;
+  }
+  .row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--ink); border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.25);
+    cursor: pointer;
+  }
+  .row input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--ink); border: 2px solid #fff; cursor: pointer;
+  }
+
+  .hint {
+    position: fixed; bottom: 24px; right: 24px; z-index: 5;
+    font-size: 11px; color: var(--muted);
+    background: rgba(255,255,255,0.4);
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    padding: 6px 12px;
+    backdrop-filter: blur(8px);
+  }
+
+  @media (max-width: 720px) {
+    .title { top: 12px; left: 12px; right: 12px; max-width: none; }
+    .controls { top: auto; bottom: 76px; right: 12px; left: 12px; width: auto; }
+    .poses { bottom: 12px; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <div class="ui title">
+    <h1><span class="dot"></span>3D Hand · Interactive Rig</h1>
+    <p>Drag to rotate · scroll to zoom · move your cursor to nudge the fingers. The index finger is calling you over.</p>
+  </div>
+
+  <div class="ui controls">
+    <h2>Controls</h2>
+    <div class="row"><label>Skin tone</label><input id="tone" type="range" min="0" max="100" value="45"></div>
+    <div class="row"><label>Nail tint</label><input id="nail" type="range" min="0" max="100" value="45"></div>
+    <div class="row"><label>Animation</label><input id="speed" type="range" min="0" max="200" value="100"></div>
+    <div class="row"><label>Wrist sway</label><input id="sway" type="range" min="0" max="100" value="35"></div>
+  </div>
+
+  <div class="ui poses" id="poses"></div>
+
+  <div class="hint">drag · scroll · hover</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ------------------------------------------------------------------ */
+/*  Scene                                                             */
+/* ------------------------------------------------------------------ */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+camera.position.set(0.6, 1.2, 6.8);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 3.2;
+controls.maxDistance = 12;
+controls.target.set(0, 0.7, 0);
+controls.enablePan = false;
+
+/* Lights — softened, photo-studio style */
+const key = new THREE.DirectionalLight(0xfff4e2, 2.6);
+key.position.set(2.6, 5.2, 4.5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 0.5;
+key.shadow.camera.far = 20;
+key.shadow.camera.left = -4;
+key.shadow.camera.right = 4;
+key.shadow.camera.top = 4;
+key.shadow.camera.bottom = -4;
+key.shadow.bias = -0.0004;
+key.shadow.radius = 8;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xdfe9ff, 0.55);
+fill.position.set(-4, 2, 3);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffd0a0, 0.7);
+rim.position.set(-2.5, 3.2, -4);
+scene.add(rim);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+
+/* Floor for soft shadow catch */
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(8, 64),
+  new THREE.ShadowMaterial({ opacity: 0.18 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -1.8;
+floor.receiveShadow = true;
+scene.add(floor);
+
+/* ------------------------------------------------------------------ */
+/*  Materials                                                          */
+/* ------------------------------------------------------------------ */
+function skinColor(t) {
+  // t 0..1, light peachy fair -> warmer tan
+  return new THREE.Color().setHSL(
+    0.055 + 0.005 * (1 - t),
+    0.55 - 0.10 * t,
+    0.78 - 0.30 * t
+  );
+}
+function nailColor(t) {
+  // soft pinkish nude
+  return new THREE.Color().setHSL(
+    0.99 + 0.02 * t,
+    0.32,
+    0.82 - 0.16 * t
+  );
+}
+
+const skinMat = new THREE.MeshPhysicalMaterial({
+  color: skinColor(0.30),
+  roughness: 0.48,
+  sheen: 0.6,
+  sheenColor: new THREE.Color(0xffcdaf),
+  sheenRoughness: 0.6,
+  clearcoat: 0.22,
+  clearcoatRoughness: 0.55,
+  metalness: 0.0,
+  transmission: 0.05,
+  thickness: 0.6,
+  ior: 1.36,
+  attenuationColor: new THREE.Color(0xff9d7a),
+  attenuationDistance: 1.2,
+});
+
+const nailMat = new THREE.MeshPhysicalMaterial({
+  color: nailColor(0.55),
+  roughness: 0.18,
+  clearcoat: 0.9,
+  clearcoatRoughness: 0.05,
+  metalness: 0.0,
+  sheen: 0.2,
+});
+
+/* ------------------------------------------------------------------ */
+/*  Hand rig                                                           */
+/* ------------------------------------------------------------------ */
+const root = new THREE.Group();
+root.position.y = 0.2;
+scene.add(root);
+
+// Wrist + arm stub
+const wrist = new THREE.Group();
+root.add(wrist);
+
+const armStub = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.42, 0.46, 1.4, 32),
+  skinMat
+);
+armStub.position.set(0, -1.2, 0);
+armStub.castShadow = true;
+armStub.receiveShadow = true;
+wrist.add(armStub);
+
+// Soft "cuff" rounded cap on the arm where it meets the wrist
+const wristCap = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 24), skinMat);
+wristCap.position.set(0, -0.5, 0);
+wristCap.castShadow = true; wristCap.receiveShadow = true;
+wrist.add(wristCap);
+
+// Palm: a softly tapered slab built from a scaled rounded box (lathe-ish look)
+const palmGroup = new THREE.Group();
+wrist.add(palmGroup);
+
+const palmGeo = new THREE.BoxGeometry(1.25, 1.55, 0.55, 8, 12, 4);
+// Soften corners by pushing vertices toward an ellipsoid
+{
+  const pos = palmGeo.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    // Normalize toward ellipsoid
+    const nx = v.x / 0.62, ny = v.y / 0.78, nz = v.z / 0.28;
+    const len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+    const k = 0.35; // blend amount
+    const ex = (nx / len) * 0.62;
+    const ey = (ny / len) * 0.78;
+    const ez = (nz / len) * 0.28;
+    v.x = v.x * (1 - k) + ex * k;
+    v.y = v.y * (1 - k) + ey * k;
+    v.z = v.z * (1 - k) + ez * k;
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  palmGeo.computeVertexNormals();
+}
+const palm = new THREE.Mesh(palmGeo, skinMat);
+palm.castShadow = true; palm.receiveShadow = true;
+palmGroup.add(palm);
+
+// Subtle knuckle pad row
+for (let i = 0; i < 4; i++) {
+  const k = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), skinMat);
+  k.position.set(-0.42 + i * 0.28, 0.72, 0.18);
+  k.scale.set(1.0, 0.6, 0.5);
+  k.castShadow = true; k.receiveShadow = true;
+  palmGroup.add(k);
+}
+
+/* ---- Fingers ---- */
+/**
+ * Each finger = 3 phalanx segments. We use nested Groups so rotations
+ * compound naturally. Each segment is a tapered cylinder (capsule-ish)
+ * plus a small sphere joint.
+ */
+function buildFinger({
+  name,
+  base,            // base length (proximal phalanx)
+  mid,             // middle phalanx
+  tip,             // distal phalanx (includes nail)
+  radius,          // base radius
+  taper = 0.85,    // radius reduction per joint
+  rootPos,         // position on the palm
+  rootRot,         // base rotation
+}) {
+  const group = new THREE.Group();
+  group.position.copy(rootPos);
+  if (rootRot) group.rotation.copy(rootRot);
+
+  const segs = [];
+
+  function seg(parent, length, rTop, rBot) {
+    const g = new THREE.Group();
+    parent.add(g);
+
+    const geo = new THREE.CylinderGeometry(rTop, rBot, length, 24, 1, false);
+    const m = new THREE.Mesh(geo, skinMat);
+    m.position.y = length / 2;
+    m.castShadow = true; m.receiveShadow = true;
+    g.add(m);
+
+    // joint sphere at base of segment
+    const j = new THREE.Mesh(new THREE.SphereGeometry(rBot * 1.05, 20, 14), skinMat);
+    j.castShadow = true;
+    g.add(j);
+
+    // pivot for next segment lives at top
+    const pivot = new THREE.Group();
+    pivot.position.y = length;
+    g.add(pivot);
+
+    return { group: g, pivot, mesh: m };
+  }
+
+  const s1 = seg(group, base, radius * taper, radius);
+  const s2 = seg(s1.pivot, mid, radius * taper * taper, radius * taper);
+  const s3 = seg(s2.pivot, tip, radius * taper * taper * taper, radius * taper * taper);
+
+  // fingertip rounded cap
+  const tipCap = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * taper * taper * taper, 20, 14),
+    skinMat
+  );
+  tipCap.position.y = tip;
+  tipCap.scale.set(1, 1.1, 0.85);
+  tipCap.castShadow = true;
+  s3.group.add(tipCap);
+
+  // Nail — almond/oval shaped plate sitting on top of the distal phalanx
+  const nailR = radius * taper * taper * taper;
+  const nailGeo = new THREE.SphereGeometry(nailR * 0.95, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+  const nail = new THREE.Mesh(nailGeo, nailMat);
+  nail.position.y = tip * 0.72;
+  nail.position.z = nailR * 0.85;
+  nail.rotation.x = Math.PI / 2;
+  nail.scale.set(0.95, 0.5, 1.4);
+  nail.castShadow = true;
+  s3.group.add(nail);
+
+  segs.push(s1, s2, s3);
+  group.userData.segs = segs;
+  group.userData.name = name;
+  return group;
+}
+
+const fingers = {};
+
+// Positions across the top edge of the palm
+const fingerDefs = [
+  { name: 'index',  x: -0.42, base: 0.45, mid: 0.30, tip: 0.30, radius: 0.115, splay:  0.08 },
+  { name: 'middle', x: -0.14, base: 0.52, mid: 0.34, tip: 0.30, radius: 0.12,  splay:  0.00 },
+  { name: 'ring',   x:  0.14, base: 0.48, mid: 0.32, tip: 0.30, radius: 0.115, splay: -0.05 },
+  { name: 'pinky',  x:  0.42, base: 0.36, mid: 0.24, tip: 0.24, radius: 0.10,  splay: -0.12 },
+];
+
+for (const def of fingerDefs) {
+  const f = buildFinger({
+    name: def.name,
+    base: def.base,
+    mid: def.mid,
+    tip: def.tip,
+    radius: def.radius,
+    rootPos: new THREE.Vector3(def.x, 0.78, 0.0),
+    rootRot: new THREE.Euler(-0.04, 0, def.splay),
+  });
+  palmGroup.add(f);
+  fingers[def.name] = f;
+}
+
+// Thumb — offset off the side, tilted out & forward, only 2 segments visually
+const thumb = (() => {
+  const group = new THREE.Group();
+  group.position.set(-0.6, 0.05, 0.12);
+  group.rotation.set(0.2, 0.2, 1.05); // pointing up-and-out
+
+  function seg(parent, length, rTop, rBot) {
+    const g = new THREE.Group();
+    parent.add(g);
+    const geo = new THREE.CylinderGeometry(rTop, rBot, length, 24, 1, false);
+    const m = new THREE.Mesh(geo, skinMat);
+    m.position.y = length / 2;
+    m.castShadow = true; m.receiveShadow = true;
+    g.add(m);
+    const j = new THREE.Mesh(new THREE.SphereGeometry(rBot * 1.05, 20, 14), skinMat);
+    j.castShadow = true;
+    g.add(j);
+    const pivot = new THREE.Group();
+    pivot.position.y = length;
+    g.add(pivot);
+    return { group: g, pivot, mesh: m };
+  }
+
+  const r = 0.135;
+  const s1 = seg(group, 0.55, r * 0.88, r);
+  const s2 = seg(s1.pivot, 0.42, r * 0.78, r * 0.88);
+  const s3 = seg(s2.pivot, 0.34, r * 0.65, r * 0.78);
+
+  const tipCap = new THREE.Mesh(new THREE.SphereGeometry(r * 0.65, 20, 14), skinMat);
+  tipCap.position.y = 0.34;
+  tipCap.scale.set(1, 1.1, 0.85);
+  tipCap.castShadow = true;
+  s3.group.add(tipCap);
+
+  // Nail
+  const nailR = r * 0.65;
+  const nailGeo = new THREE.SphereGeometry(nailR * 0.95, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+  const nail = new THREE.Mesh(nailGeo, nailMat);
+  nail.position.y = 0.24;
+  nail.position.z = nailR * 0.85;
+  nail.rotation.x = Math.PI / 2;
+  nail.scale.set(0.95, 0.5, 1.4);
+  nail.castShadow = true;
+  s3.group.add(nail);
+
+  group.userData.segs = [s1, s2, s3];
+  group.userData.name = 'thumb';
+  return group;
+})();
+palmGroup.add(thumb);
+fingers.thumb = thumb;
+
+/* ------------------------------------------------------------------ */
+/*  Poses                                                              */
+/* ------------------------------------------------------------------ */
+// curls[finger] = [seg1, seg2, seg3]  in radians (forward bend = + on x)
+// spread[finger] = z-rotation at base for splay
+function pose(curls, spread = {}, wristRot = { x: 0, y: 0, z: 0 }) {
+  return { curls, spread, wristRot };
+}
+
+const POSES = {
+  open: pose({
+    thumb:  [0.05, 0.05, 0.05],
+    index:  [0.05, 0.05, 0.05],
+    middle: [0.05, 0.05, 0.05],
+    ring:   [0.05, 0.05, 0.05],
+    pinky:  [0.05, 0.05, 0.05],
+  }, { index: 0.10, middle: 0.0, ring: -0.07, pinky: -0.18 }),
+
+  fist: pose({
+    thumb:  [0.55, 0.55, 0.45],
+    index:  [1.55, 1.55, 0.9],
+    middle: [1.55, 1.55, 0.9],
+    ring:   [1.55, 1.55, 0.9],
+    pinky:  [1.55, 1.55, 0.9],
+  }),
+
+  peace: pose({
+    thumb:  [0.45, 0.65, 0.4],
+    index:  [0.04, 0.04, 0.04],
+    middle: [0.04, 0.04, 0.04],
+    ring:   [1.55, 1.55, 0.9],
+    pinky:  [1.55, 1.55, 0.9],
+  }, { index: 0.22, middle: -0.05 }),
+
+  point: pose({
+    thumb:  [0.55, 0.5, 0.4],
+    index:  [0.02, 0.02, 0.02],
+    middle: [1.55, 1.55, 0.9],
+    ring:   [1.55, 1.55, 0.9],
+    pinky:  [1.55, 1.55, 0.9],
+  }),
+
+  rock: pose({
+    thumb:  [0.4, 0.6, 0.3],
+    index:  [0.04, 0.04, 0.04],
+    middle: [1.55, 1.55, 0.9],
+    ring:   [1.55, 1.55, 0.9],
+    pinky:  [0.04, 0.04, 0.04],
+  }, { index: 0.18, pinky: -0.25 }),
+
+  ok: pose({
+    thumb:  [0.8, 0.8, 0.4],
+    index:  [0.9, 0.9, 0.6],
+    middle: [0.15, 0.15, 0.10],
+    ring:   [0.10, 0.10, 0.08],
+    pinky:  [0.08, 0.08, 0.06],
+  }),
+
+  pinch: pose({
+    thumb:  [0.6, 0.9, 0.5],
+    index:  [0.7, 0.9, 0.5],
+    middle: [0.2, 0.2, 0.15],
+    ring:   [0.2, 0.2, 0.15],
+    pinky:  [0.2, 0.2, 0.15],
+  }),
+
+  wave: pose({
+    thumb:  [0.15, 0.2, 0.1],
+    index:  [0.10, 0.10, 0.08],
+    middle: [0.08, 0.08, 0.06],
+    ring:   [0.10, 0.10, 0.08],
+    pinky:  [0.12, 0.12, 0.10],
+  }, { index: 0.12, middle: 0.0, ring: -0.08, pinky: -0.22 }),
+
+  count1: pose({
+    thumb:  [0.55, 0.55, 0.45],
+    index:  [0.04, 0.04, 0.04],
+    middle: [1.55, 1.55, 0.9],
+    ring:   [1.55, 1.55, 0.9],
+    pinky:  [1.55, 1.55, 0.9],
+  }),
+
+  // "Come here" — back of hand to camera, thumb up, index beckoning
+  beckon: pose({
+    thumb:  [0.55, 0.55, 0.30],
+    index:  [0.55, 0.50, 0.30],   // mid-curl resting; animated each frame
+    middle: [1.55, 1.60, 0.90],
+    ring:   [1.55, 1.60, 0.90],
+    pinky:  [1.55, 1.60, 0.90],
+  }, { index: 0.06, middle: 0.0, ring: -0.06, pinky: -0.15 },
+  { x: 0.05, y: Math.PI, z: -0.7 }),
+};
+
+/* ------------------------------------------------------------------ */
+/*  Pose interpolation / animation state                              */
+/* ------------------------------------------------------------------ */
+const fingerNames = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+
+const current = {};   // current curl values
+const target = {};    // target curl values
+const currentSpread = {};
+const targetSpread = {};
+
+fingerNames.forEach(n => {
+  current[n] = [0, 0, 0];
+  target[n] = [0, 0, 0];
+  currentSpread[n] = 0;
+  targetSpread[n] = 0;
+});
+let currentWrist = { x: 0, y: 0, z: 0 };
+let targetWrist  = { x: 0, y: 0, z: 0 };
+
+function setPose(p) {
+  for (const n of fingerNames) {
+    target[n] = p.curls[n] ? p.curls[n].slice() : [0, 0, 0];
+    targetSpread[n] = (p.spread && n in p.spread) ? p.spread[n] : (
+      n === 'index' ? 0.10 :
+      n === 'middle' ? 0.0 :
+      n === 'ring' ? -0.07 :
+      n === 'pinky' ? -0.18 : 0
+    );
+  }
+  targetWrist = p.wristRot ? { ...p.wristRot } : { x: 0, y: 0, z: 0 };
+}
+
+setPose(POSES.open);
+// Snap initial
+for (const n of fingerNames) {
+  current[n] = target[n].slice();
+  currentSpread[n] = targetSpread[n];
+}
+currentWrist = { ...targetWrist };
+
+/* ------------------------------------------------------------------ */
+/*  Apply pose to rig each frame                                      */
+/* ------------------------------------------------------------------ */
+function applyFinger(name, curl, spread, extra = 0) {
+  const f = fingers[name];
+  if (!f) return;
+  // Spread on base group's z (for fingers) — thumb spread baked already
+  if (name !== 'thumb') {
+    f.rotation.z = (name === 'index' ? 0.08 :
+                   name === 'middle' ? 0.0 :
+                   name === 'ring' ? -0.05 :
+                   name === 'pinky' ? -0.12 : 0) + spread;
+  }
+  const segs = f.userData.segs;
+  // Apply curl rotations to each segment around X (forward bend)
+  segs[0].group.rotation.x = curl[0] + extra * 0.35;
+  segs[1].pivot.rotation.x = 0; // reset; actual bend lives on next group
+  // The way we wired it: each segment's bend rotates its OWN group around X,
+  // and that propagates through its pivot to children. So we set s2.group, s3.group.
+  // s2 lives under s1.pivot, s3 lives under s2.pivot.
+  segs[1].group.rotation.x = curl[1] + extra * 0.30;
+  segs[2].group.rotation.x = curl[2] + extra * 0.25;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Cursor interaction (fingers react to pointer)                     */
+/* ------------------------------------------------------------------ */
+const pointer = new THREE.Vector2(0.5, 0.5);
+window.addEventListener('pointermove', (e) => {
+  pointer.x = e.clientX / window.innerWidth;
+  pointer.y = e.clientY / window.innerHeight;
+});
+
+/* ------------------------------------------------------------------ */
+/*  UI wiring                                                          */
+/* ------------------------------------------------------------------ */
+const poseOrder = [
+  ['beckon', 'Come here'],
+  ['open',   'Open'],
+  ['fist',   'Fist'],
+  ['peace',  'Peace'],
+  ['point',  'Point'],
+  ['rock',   'Rock'],
+  ['ok',     'OK'],
+  ['pinch',  'Pinch'],
+  ['wave',   'Wave'],
+];
+const posesEl = document.getElementById('poses');
+let activePoseKey = 'beckon';
+
+poseOrder.forEach(([k, label]) => {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.dataset.k = k;
+  if (k === activePoseKey) b.classList.add('active');
+  b.addEventListener('click', () => {
+    activePoseKey = k;
+    setPose(POSES[k]);
+    posesEl.querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset.k === k));
+  });
+  posesEl.appendChild(b);
+});
+setPose(POSES[activePoseKey]);
+
+const toneEl  = document.getElementById('tone');
+const nailEl  = document.getElementById('nail');
+const speedEl = document.getElementById('speed');
+const swayEl  = document.getElementById('sway');
+
+function updateTones() {
+  skinMat.color.copy(skinColor(parseFloat(toneEl.value) / 100));
+  nailMat.color.copy(nailColor(parseFloat(nailEl.value) / 100));
+}
+toneEl.addEventListener('input', updateTones);
+nailEl.addEventListener('input', updateTones);
+updateTones();
+
+/* ------------------------------------------------------------------ */
+/*  Resize                                                             */
+/* ------------------------------------------------------------------ */
+function resize() {
+  const w = stage.clientWidth || window.innerWidth;
+  const h = stage.clientHeight || window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+/* ------------------------------------------------------------------ */
+/*  Animate                                                            */
+/* ------------------------------------------------------------------ */
+const clock = new THREE.Clock();
+function tick() {
+  const dt = Math.min(0.05, clock.getDelta());
+  const t = clock.elapsedTime;
+  const speed = parseFloat(speedEl.value) / 100;
+  const swayAmt = parseFloat(swayEl.value) / 100;
+
+  // ease current toward target
+  const ease = 1 - Math.pow(0.001, dt);
+  for (const n of fingerNames) {
+    for (let i = 0; i < 3; i++) {
+      current[n][i] += (target[n][i] - current[n][i]) * ease;
+    }
+    currentSpread[n] += (targetSpread[n] - currentSpread[n]) * ease;
+  }
+  currentWrist.x += (targetWrist.x - currentWrist.x) * ease;
+  currentWrist.y += (targetWrist.y - currentWrist.y) * ease;
+  currentWrist.z += (targetWrist.z - currentWrist.z) * ease;
+
+  // idle "breathing" curl and pose-specific motion
+  const idleAmp = 0.06;
+  let extras = { thumb: 0, index: 0, middle: 0, ring: 0, pinky: 0 };
+
+  if (activePoseKey === 'wave') {
+    // staggered waving fingers
+    extras.thumb  = Math.sin(t * 2.0 * speed + 0.0) * 0.05;
+    extras.index  = Math.sin(t * 2.0 * speed + 0.4) * 0.18;
+    extras.middle = Math.sin(t * 2.0 * speed + 0.8) * 0.20;
+    extras.ring   = Math.sin(t * 2.0 * speed + 1.2) * 0.18;
+    extras.pinky  = Math.sin(t * 2.0 * speed + 1.6) * 0.16;
+  } else if (activePoseKey === 'beckon') {
+    // index finger repeatedly curls in and back — "come here"
+    // big amplitude on index, slight sympathy on others, none on thumb
+    const phase = (Math.sin(t * 2.6 * speed) + 1) * 0.5; // 0..1
+    const ease = phase * phase * (3 - 2 * phase);        // smoothstep
+    extras.index  = ease * 0.95;        // strong curl-in pulse
+    extras.middle = ease * 0.05;
+    extras.ring   = ease * 0.04;
+    extras.pinky  = ease * 0.03;
+    extras.thumb  = Math.sin(t * 2.6 * speed + 0.3) * 0.03;
+  } else if (activePoseKey === 'open') {
+    extras.thumb  = Math.sin(t * 0.9 * speed + 0.0) * idleAmp;
+    extras.index  = Math.sin(t * 0.9 * speed + 0.5) * idleAmp;
+    extras.middle = Math.sin(t * 0.9 * speed + 1.0) * idleAmp;
+    extras.ring   = Math.sin(t * 0.9 * speed + 1.5) * idleAmp;
+    extras.pinky  = Math.sin(t * 0.9 * speed + 2.0) * idleAmp;
+  } else {
+    // subtle micro-motion for all other poses
+    for (const n of fingerNames) {
+      extras[n] = Math.sin(t * 1.4 * speed + n.length) * 0.02;
+    }
+  }
+
+  // Pointer influence — push fingers toward cursor
+  // px in -1..1, py in -1..1 (centered)
+  const px = (pointer.x - 0.5) * 2;
+  const py = (pointer.y - 0.5) * 2;
+  const reactive = (activePoseKey === 'open' || activePoseKey === 'wave') ? 1 : (activePoseKey === 'beckon' ? 0.15 : 0.35);
+  for (const n of fingerNames) {
+    extras[n] += -py * 0.18 * reactive; // cursor up → fingers extend; down → curl
+  }
+
+  for (const n of fingerNames) {
+    applyFinger(n, current[n], currentSpread[n], extras[n]);
+  }
+
+  // Wrist sway + pointer follow
+  wrist.rotation.x = currentWrist.x + Math.sin(t * 0.7 * speed) * 0.04 * swayAmt + py * 0.12 * swayAmt;
+  wrist.rotation.y = currentWrist.y + Math.sin(t * 0.5 * speed + 1.2) * 0.06 * swayAmt + px * 0.18 * swayAmt;
+  wrist.rotation.z = currentWrist.z + Math.sin(t * 0.6 * speed + 0.6) * 0.03 * swayAmt;
+
+  // gentle floating
+  root.position.y = 0.2 + Math.sin(t * 1.1 * speed) * 0.03 * swayAmt;
+
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>

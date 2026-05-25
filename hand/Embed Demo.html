@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hand widget — embed demo</title>
+<style>
+  :root {
+    --ink: #0f0e0c;
+    --muted: #6a635a;
+    --line: rgba(15,14,12,0.10);
+    --accent: oklch(0.62 0.14 25);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #faf7f1; color: var(--ink); font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+
+  /* A fake website hero so you can see the transparent widget against real content */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 40px;
+    padding: 64px 8vw 80px;
+    overflow: hidden;
+    background:
+      radial-gradient(80% 60% at 80% 20%, #fff 0%, transparent 60%),
+      linear-gradient(180deg, #faf7f1 0%, #f0eadd 100%);
+  }
+  .copy {
+    align-self: center;
+    max-width: 580px;
+  }
+  .kicker {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 18px;
+  }
+  .kicker .dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); margin-right: 9px; vertical-align: 1px;
+  }
+  h1 {
+    margin: 0 0 18px;
+    font-size: clamp(40px, 6vw, 84px);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+  h1 em {
+    font-style: italic;
+    font-family: "Times New Roman", Georgia, serif;
+    font-weight: 400;
+  }
+  .sub {
+    margin: 0 0 28px;
+    max-width: 460px;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 13px 18px;
+    border-radius: 99px;
+    background: var(--ink); color: #faf7f1;
+    text-decoration: none;
+    font-size: 14px; font-weight: 500; letter-spacing: 0.005em;
+    border: 1px solid var(--ink);
+    transition: transform .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.ghost {
+    background: transparent; color: var(--ink);
+    border-color: var(--line);
+  }
+
+  /* Slot for the embedded hand widget */
+  .hand-slot {
+    position: relative;
+    min-height: 560px;
+    align-self: center;
+  }
+  .hand-slot iframe {
+    width: 100%; height: 100%;
+    position: absolute; inset: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  /* Live controls section so the user can see postMessage in action */
+  .controls {
+    position: relative;
+    margin: 0 8vw 80px;
+    padding: 24px 28px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fffdf8;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+  .controls h2 {
+    margin: 0 0 6px;
+    font-size: 13px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .controls p {
+    margin: 0 0 14px;
+    font-size: 13px; line-height: 1.55; color: var(--muted);
+  }
+  .pose-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pose-row button {
+    appearance: none; border: 1px solid var(--line); background: #fff;
+    padding: 8px 12px; border-radius: 8px;
+    font: 500 12px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    cursor: pointer; color: var(--ink);
+    transition: all .15s ease;
+  }
+  .pose-row button:hover { border-color: rgba(15,14,12,0.30); }
+  .pose-row button.on { background: var(--ink); color: #faf7f1; border-color: var(--ink); }
+
+  pre.code {
+    margin: 0;
+    padding: 16px 18px;
+    background: #1a1815;
+    color: #e8e1d3;
+    font: 13px/1.55 "SF Mono", Menlo, Consolas, monospace;
+    border-radius: 10px;
+    overflow: auto;
+    white-space: pre;
+    tab-size: 2;
+  }
+  pre.code .tag { color: #f6a96b; }
+  pre.code .attr { color: #d4b78a; }
+  pre.code .str  { color: #a3d4a8; }
+  pre.code .com  { color: #6a635a; font-style: italic; }
+
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 0; padding-top: 40px; padding-bottom: 0; min-height: auto; }
+    .hand-slot { min-height: 460px; margin-top: 20px; }
+    .controls { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <section class="hero">
+    <div class="copy">
+      <p class="kicker"><span class="dot"></span>Demo page · transparent widget</p>
+      <h1>Come closer, <em>and listen</em>.</h1>
+      <p class="sub">
+        The hand to the right is an iframe with a transparent background.
+        It sits over this page's gradient and content — no white box, no chrome.
+        Use the controls below to swap its pose live.
+      </p>
+      <div class="ctas">
+        <a class="btn" href="#controls">See the embed code</a>
+        <a class="btn ghost" href="Hand.html">Full version with all tweaks</a>
+      </div>
+    </div>
+
+    <div class="hand-slot">
+      <iframe id="handFrame"
+              src="hand-widget.html?pose=beckon&bg=transparent"
+              title="Hand widget"
+              allowtransparency="true"
+              loading="lazy"></iframe>
+    </div>
+  </section>
+
+  <section class="controls" id="controls">
+    <div>
+      <h2>Live controls</h2>
+      <p>Click a pose. We send a <code>postMessage</code> to the iframe — no reload, no re-fetch of the 3D model.</p>
+
+      <div class="pose-row" id="poseRow">
+        <button data-pose="beckon" class="on">Come here</button>
+        <button data-pose="grab">Grab donut</button>
+        <button data-pose="open">Open</button>
+        <button data-pose="point">Point</button>
+        <button data-pose="peace">Peace</button>
+        <button data-pose="fist">Fist</button>
+      </div>
+    </div>
+
+    <div>
+      <h2>Paste into your site</h2>
+      <p>Drop this iframe wherever you want the hand. Size it however you like — the canvas is responsive.</p>
+
+<pre class="code"><span class="com">&lt;!-- transparent widget, default come-here loop --&gt;</span>
+<span class="tag">&lt;iframe</span>
+  <span class="attr">src</span>=<span class="str">"https://your-site.com/hand-widget.html?pose=beckon"</span>
+  <span class="attr">style</span>=<span class="str">"width:100%; height:560px; border:0; background:transparent;"</span>
+  <span class="attr">allowtransparency</span>=<span class="str">"true"</span>
+  <span class="attr">loading</span>=<span class="str">"lazy"</span><span class="tag">&gt;</span>
+<span class="tag">&lt;/iframe&gt;</span>
+
+<span class="com">// Change pose at runtime from your page:</span>
+document.querySelector(<span class="str">'iframe'</span>).contentWindow.postMessage(
+  { type: <span class="str">'pose'</span>, value: <span class="str">'grab'</span> }, <span class="str">'*'</span>
+);</pre>
+    </div>
+  </section>
+
+<script>
+  const frame = document.getElementById('handFrame');
+  const row = document.getElementById('poseRow');
+  row.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-pose]');
+    if (!b) return;
+    row.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    frame.contentWindow.postMessage({ type: 'pose', value: b.dataset.pose }, '*');
+  });
+</script>
+</body>
+</html>

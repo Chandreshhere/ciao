@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hand Widget</title>
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    background: transparent;
+    overflow: hidden;
+  }
+  body[data-bg="white"] { background: #ffffff; }
+  body[data-bg="warm"]  { background: radial-gradient(120% 100% at 50% 0%, #ffffff, #ece5d6); }
+  body[data-bg="dark"]  { background: radial-gradient(120% 100% at 50% 0%, #2a241d, #0c0a08); }
+
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; }
+
+  #loading {
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    color: rgba(120, 110, 100, 0.55);
+    font: 500 11px/1 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    pointer-events: none;
+  }
+  #loading.gone { opacity: 0; transition: opacity .4s ease; }
+</style>
+</head>
+<body data-bg="transparent">
+  <div id="stage"></div>
+  <div id="loading">Loading…</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader }   from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ---------- URL config ----------
+   ?pose=grab|beckon|open|fist|point|peace   default: beckon
+   ?bg=transparent|white|warm|dark           default: transparent
+   ?interact=1                               drag/scroll orbit controls (default off)
+   ?speed=100                                animation speed (default 100)
+   ?glb=/path/to/hand.glb                    override model path
+
+   PostMessage API (parent page → iframe):
+     iframe.contentWindow.postMessage({ type:'pose',  value:'beckon' }, '*')
+     iframe.contentWindow.postMessage({ type:'speed', value: 1.5 }, '*')
+     iframe.contentWindow.postMessage({ type:'bg',    value:'dark' }, '*')
+------------------------------------ */
+const params = new URLSearchParams(location.search);
+let POSE_KEY = params.get('pose')   || 'beckon';
+const BG      = params.get('bg')     || 'transparent';
+const INTERACT = params.get('interact') === '1';
+let SPEED    = parseFloat(params.get('speed') || '100') / 100;
+const GLB_URL = params.get('glb')    || 'assets/hand.glb';
+
+document.body.dataset.bg = BG;
+
+/* ---------- Scene ---------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 0); // transparent
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
+
+let controls = null;
+if (INTERACT) {
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.enablePan = false;
+  controls.minDistance = 1.5;
+  controls.maxDistance = 40;
+}
+
+// Lights — soft photo-studio
+const key = new THREE.DirectionalLight(0xfff1d8, 2.4);
+key.position.set(3.2, 5.0, 4.0);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.bias = -0.00035;
+key.shadow.radius = 7;
+key.shadow.camera.left = -4; key.shadow.camera.right = 4;
+key.shadow.camera.top = 4;  key.shadow.camera.bottom = -4;
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 25;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xd6e2ff, 0.55);
+fill.position.set(-4, 2.5, 3); scene.add(fill);
+const rim  = new THREE.DirectionalLight(0xffd0a0, 0.85);
+rim.position.set(-2.5, 3.5, -4); scene.add(rim);
+scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(12, 64),
+  new THREE.ShadowMaterial({ opacity: 0.16 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+/* ---------- Bone mapping (Sketchfab "Rigged Hand" by Lorenzo Drago) ---------- */
+const BONE_NAMES = {
+  wrist:  'Bone_00',
+  palm:   'Bone001_01',
+  index:  ['Bone009_02', 'Bone010_03', 'Bone011_04'],
+  middle: ['Bone012_05', 'Bone013_06', 'Bone014_07'],
+  ring:   ['Bone015_08', 'Bone016_09', 'Bone017_010'],
+  pinky:  ['Bone018_011','Bone019_012','Bone020_013'],
+  thumb:  ['Bone003_014','Bone004_015','Bone005_016'],
+};
+const fingerNames = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+
+const bones = { fingers: {} };
+const restRotations = new WeakMap();
+const curlAxisByFinger = {};
+let mesh = null, model = null;
+
+const MAX_PER_SEGMENT = {
+  thumb:  [0.85, 1.05, 0.85],
+  index:  [1.40, 1.45, 1.00],
+  middle: [1.45, 1.50, 1.05],
+  ring:   [1.40, 1.45, 1.00],
+  pinky:  [1.30, 1.40, 0.95],
+};
+
+const POSES = {
+  open:   { thumb:[0.05,0.05,0.05], index:[0.04,0.04,0.04], middle:[0.04,0.04,0.04], ring:[0.04,0.04,0.04], pinky:[0.04,0.04,0.04] },
+  grab:   { thumb:[0.45,0.55,0.50], index:[0.55,0.60,0.55], middle:[0.55,0.62,0.58], ring:[0.55,0.60,0.55], pinky:[0.50,0.55,0.50] },
+  beckon: { thumb:[0.55,0.65,0.55], index:[0.10,0.10,0.10], middle:[0.92,0.95,0.85], ring:[0.92,0.95,0.85], pinky:[0.92,0.95,0.85] },
+  fist:   { thumb:[0.65,0.85,0.85], index:[0.92,0.95,0.95], middle:[0.92,0.95,0.95], ring:[0.92,0.95,0.95], pinky:[0.92,0.95,0.95] },
+  peace:  { thumb:[0.55,0.75,0.65], index:[0.05,0.05,0.05], middle:[0.05,0.05,0.05], ring:[0.92,0.95,0.85], pinky:[0.92,0.95,0.85] },
+  point:  { thumb:[0.60,0.70,0.55], index:[0.03,0.03,0.03], middle:[0.92,0.95,0.85], ring:[0.92,0.95,0.85], pinky:[0.92,0.95,0.85] },
+};
+
+const curState = {}, tgtState = {};
+fingerNames.forEach(f => { curState[f] = [0,0,0]; tgtState[f] = [0,0,0]; });
+
+function setPose(key) {
+  const p = POSES[key] || POSES.grab;
+  for (const f of fingerNames) tgtState[f] = p[f].slice();
+}
+
+function detectCurlAxisForFinger(fingerName) {
+  const finger = bones.fingers[fingerName];
+  if (!finger || !finger[0] || !bones.wrist) return { axis: 'x', sign: 1 };
+  scene.updateMatrixWorld(true);
+  const tipBefore = new THREE.Vector3(); finger[2].getWorldPosition(tipBefore);
+  const wristPos  = new THREE.Vector3(); bones.wrist.getWorldPosition(wristPos);
+  const closeDir = wristPos.clone().sub(tipBefore).normalize();
+  let best = { axis:'x', sign:1, score:-Infinity };
+  for (const ax of ['x','y','z']) {
+    for (const sg of [1,-1]) {
+      const r = restRotations.get(finger[0]);
+      finger[0].rotation.set(r.x, r.y, r.z);
+      finger[0].rotation[ax] = r[ax] + 0.9 * sg;
+      finger[0].updateMatrixWorld(true);
+      const tipAfter = new THREE.Vector3(); finger[2].getWorldPosition(tipAfter);
+      const score = tipAfter.clone().sub(tipBefore).dot(closeDir);
+      if (score > best.score) best = { axis:ax, sign:sg, score };
+    }
+  }
+  const r = restRotations.get(finger[0]);
+  finger[0].rotation.set(r.x, r.y, r.z); finger[0].updateMatrixWorld(true);
+  return best;
+}
+
+function applyToBones(extras) {
+  for (const f of fingerNames) {
+    const chain = bones.fingers[f]; if (!chain) continue;
+    const ca = curlAxisByFinger[f] || { axis:'x', sign:1 };
+    const maxes = MAX_PER_SEGMENT[f];
+    const cur = curState[f];
+    const extra = (extras && extras[f]) || 0;
+    for (let i = 0; i < 3; i++) {
+      const b = chain[i]; if (!b) continue;
+      const rest = restRotations.get(b);
+      b.rotation.set(rest.x, rest.y, rest.z);
+      b.rotation[ca.axis] = rest[ca.axis] + (cur[i] + extra) * maxes[i] * ca.sign;
+    }
+  }
+}
+
+/* ---------- Load ---------- */
+const loader = new GLTFLoader();
+fetch(GLB_URL).then(r => r.arrayBuffer()).then(ab =>
+  new Promise((res, rej) => loader.parse(ab, '', res, rej))
+).then((gltf) => {
+  model = gltf.scene;
+  scene.add(model);
+
+  model.traverse(o => {
+    if (o.name === BONE_NAMES.wrist) bones.wrist = o;
+    if (o.name === BONE_NAMES.palm)  bones.palm  = o;
+    for (const f of fingerNames) {
+      const idx = BONE_NAMES[f].indexOf(o.name);
+      if (idx >= 0) {
+        if (!bones.fingers[f]) bones.fingers[f] = [];
+        bones.fingers[f][idx] = o;
+      }
+    }
+    if (o.isMesh) {
+      mesh = o;
+      o.castShadow = true;
+      o.receiveShadow = true;
+      if (o.material && o.material.metalness !== undefined) o.material.metalness = 0;
+    }
+  });
+
+  for (const f of fingerNames) for (const b of bones.fingers[f]) {
+    restRotations.set(b, { x: b.rotation.x, y: b.rotation.y, z: b.rotation.z });
+  }
+  for (const f of fingerNames) curlAxisByFinger[f] = detectCurlAxisForFinger(f);
+
+  frameCamera();
+  setPose(POSE_KEY);
+
+  const ld = document.getElementById('loading');
+  ld.classList.add('gone');
+  setTimeout(() => ld.remove(), 500);
+}).catch(err => {
+  console.error('Failed to load hand model:', err);
+  document.getElementById('loading').textContent = 'Hand failed to load';
+});
+
+function frameCamera() {
+  if (!mesh) return;
+  model.position.set(0, 0, 0);
+  model.scale.setScalar(1);
+  model.updateMatrixWorld(true);
+  let box = new THREE.Box3().setFromObject(mesh);
+  let size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+  const target = 2.4;
+  model.scale.setScalar(target / maxDim);
+  model.updateMatrixWorld(true);
+  box = new THREE.Box3().setFromObject(mesh);
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.sub(center);
+  model.updateMatrixWorld(true);
+  box = new THREE.Box3().setFromObject(mesh);
+  floor.position.y = box.min.y - 0.05;
+
+  const halfFov = camera.fov * Math.PI / 360;
+  const dist = (target / 2) / Math.tan(halfFov) * 1.8;
+  camera.position.set(dist * 0.25, 0.4, dist);
+  if (controls) { controls.target.set(0,0,0); controls.update(); }
+  else camera.lookAt(0, 0, 0);
+}
+
+/* ---------- Resize ---------- */
+function resize() {
+  const w = stage.clientWidth || window.innerWidth;
+  const h = stage.clientHeight || window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+/* ---------- PostMessage API: parent page can change pose/bg/speed live ---------- */
+window.addEventListener('message', (e) => {
+  const m = e.data || {};
+  if (!m || typeof m !== 'object') return;
+  if (m.type === 'pose'  && POSES[m.value]) { POSE_KEY = m.value; setPose(m.value); }
+  if (m.type === 'speed' && typeof m.value === 'number') { SPEED = m.value; }
+  if (m.type === 'bg'    && typeof m.value === 'string') { document.body.dataset.bg = m.value; }
+});
+
+/* ---------- Animate ---------- */
+const clock = new THREE.Clock();
+function tick() {
+  const dt = Math.min(0.05, clock.getDelta());
+  const t = clock.elapsedTime;
+
+  const ease = 1 - Math.pow(0.0005, dt);
+  for (const f of fingerNames) for (let i = 0; i < 3; i++) {
+    curState[f][i] += (tgtState[f][i] - curState[f][i]) * ease;
+  }
+
+  const extras = { thumb:0, index:0, middle:0, ring:0, pinky:0 };
+  if (POSE_KEY === 'grab') {
+    const cycle = 1.6 / SPEED;
+    const phase = (t / cycle) % 1;
+    let k = phase < 0.4 ? phase / 0.4 : phase < 0.7 ? 1 : 1 - (phase - 0.7) / 0.3;
+    k = k * k * (3 - 2 * k);
+    const pulse = (k - 0.3) * 0.55;
+    for (const f of fingerNames) extras[f] = pulse;
+  } else if (POSE_KEY === 'beckon') {
+    const cycle = 1.2 / SPEED;
+    const phase = (Math.sin((t / cycle) * Math.PI * 2) + 1) * 0.5;
+    const k = phase * phase * (3 - 2 * phase);
+    extras.index = k * 0.65;
+    extras.middle = k * 0.05; extras.ring = k * 0.04; extras.pinky = k * 0.03;
+  } else if (POSE_KEY === 'open') {
+    for (const f of fingerNames) extras[f] = Math.sin(t * 0.9 * SPEED + f.length) * 0.04;
+  } else {
+    for (const f of fingerNames) extras[f] = Math.sin(t * 1.2 * SPEED + f.length) * 0.02;
+  }
+
+  applyToBones(extras);
+
+  if (model) {
+    model.rotation.y = Math.sin(t * 0.5 * SPEED) * 0.06;
+    model.rotation.x = Math.sin(t * 0.7 * SPEED + 1.2) * 0.04;
+  }
+
+  if (controls) controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>
