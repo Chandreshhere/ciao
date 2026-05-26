@@ -122,7 +122,10 @@ export default function Order() {
           <Reveal delay={0.2}>
             <form
               onSubmit={onSubmit}
-              className="rounded-[2rem] border-2 border-[#157c99] bg-[#FBF8EF] p-6 md:p-10"
+              // overflow-hidden + min-w-0 guarantees the rounded card
+              // clips any input that still asserts a UA min-width on
+              // iOS, instead of letting it overflow the border.
+              className="min-w-0 overflow-hidden rounded-[2rem] border-2 border-[#157c99] bg-[#FBF8EF] p-6 md:p-10"
             >
               <Field
                 label="Name"
