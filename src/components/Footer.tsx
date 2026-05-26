@@ -19,7 +19,9 @@ export default function Footer() {
   return (
     <footer
       id="order"
-      className="fixed bottom-0 left-0 right-0 z-0 flex h-screen flex-col bg-[#157c99] text-[#FBF8EF]"
+      // h-dvh on mobile so the fixed footer tracks the dynamic viewport
+      // (address bar showing/hiding); desktop keeps h-screen.
+      className="fixed bottom-0 left-0 right-0 z-0 flex h-dvh md:h-screen flex-col bg-[#157c99] text-[#FBF8EF]"
     >
       {/* Mobile-only spinning donut on the left side of the footer.
           Absolutely positioned, hidden on md+ via the component's own

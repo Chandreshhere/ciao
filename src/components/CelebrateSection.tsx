@@ -32,8 +32,8 @@ export default function CelebrateSection({
     // sticky pin holds from when the section's top hits the viewport top
     // to when its bottom reaches the viewport bottom — giving the donut
     // ~100vh of scroll to orbit and land before the section releases.
-    <section ref={ref} className="relative h-[200vh] bg-[#F5F0E8]">
-      <div className="sticky top-0 flex h-screen items-center justify-center overflow-hidden px-6">
+    <section ref={ref} className="relative h-[200dvh] md:h-[200vh] bg-[#F5F0E8]">
+      <div className="sticky top-0 flex h-dvh md:h-screen items-center justify-center overflow-hidden px-6">
         {/* Cream fade at the top of the sticky frame — softens the seam
             between the Bestsellers section above and the pinned content. */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[15] h-48 bg-gradient-to-b from-[#F5F0E8] via-[#F5F0E8]/80 to-transparent md:h-64" />

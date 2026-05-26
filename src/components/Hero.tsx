@@ -72,15 +72,23 @@ export default function Hero() {
   return (
     <section
       ref={sectionRef}
+      // Mobile uses `dvh` so the section height tracks the dynamic
+      // viewport (address bar showing/hiding) — prevents scroll
+      // lurches and layout shifts as the browser UI changes.
       // bg-[#F5F0E8] on mobile fills behind the sticky hero so the
       // motion.div's rounded bottom corners reveal cream (matching the
       // IntroSection below) instead of the blue body. Reset to transparent
       // on md+ so desktop stays exactly as before.
-      className="relative h-[200vh] w-full bg-[#F5F0E8] md:bg-transparent"
+      className="relative h-[200dvh] md:h-[200vh] w-full bg-[#F5F0E8] md:bg-transparent"
     >
       <motion.div
         style={{ borderBottomLeftRadius: radius, borderBottomRightRadius: radius }}
-        className="sticky top-0 h-screen w-full overflow-hidden"
+        // bg on mobile is a defensive backup — when the image is
+        // mid-fade-in (opacity 0 → 1), the sticky's cream fill prevents
+        // any flash of body/footer blue from peeking through.
+        // h-dvh on mobile keeps the sticky pin matched to the dynamic
+        // viewport (avoids the iOS Safari address-bar jump).
+        className="sticky top-0 h-dvh md:h-screen w-full overflow-hidden bg-[#F5F0E8] md:bg-transparent"
       >
         <div className="absolute inset-0 overflow-hidden">
           {/* Image is wrapped so the entrance animation (opacity fade)

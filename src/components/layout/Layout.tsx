@@ -13,12 +13,12 @@ export default function Layout() {
     <SmoothScroll>
       <Header />
       {/* mb on main reserves scroll room for the fixed footer to reveal.
-          Mobile gets a much taller reservation (110vh) so the last section
-          (newsletter, etc.) scrolls fully off-screen BEFORE the user
-          enters the footer's reveal window — leaving the Ciao reveal to
-          play in a clean, standalone footer view, like desktop. Desktop's
-          original 50vh reservation is preserved via md:mb-[50vh]. */}
-      <main className="relative z-10 mb-[110vh] md:mb-[50vh]">
+          Mobile gets a much taller reservation (110dvh) so the last
+          section scrolls fully off-screen BEFORE the user enters the
+          footer's reveal window. `dvh` (vs vh) tracks the dynamic
+          viewport so the reservation doesn't jump when the mobile
+          address bar shows/hides. Desktop's original 50vh preserved. */}
+      <main className="relative z-10 mb-[110dvh] md:mb-[50vh]">
         <Outlet />
       </main>
       <Footer />

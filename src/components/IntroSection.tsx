@@ -58,8 +58,8 @@ export default function IntroSection() {
   }, [])
 
   return (
-    <section className="relative h-[360vh] bg-[#F5F0E8]">
-      <div className="sticky top-0 z-30 flex h-screen items-center justify-center overflow-hidden px-6 py-16 md:px-16">
+    <section className="relative h-[360dvh] md:h-[360vh] bg-[#F5F0E8]">
+      <div className="sticky top-0 z-30 flex h-dvh md:h-screen items-center justify-center overflow-hidden px-6 py-16 md:px-16">
         {/* Pastry illustrations scattered through the empty background areas,
             behind the box. */}
         <BgPastries />
