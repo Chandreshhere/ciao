@@ -70,6 +70,17 @@ html {
   overscroll-behavior: none;
 }
 
+/* Mobile-only: if iOS Safari still allows a bit of overscroll bounce
+   past the top despite overscroll-behavior, the body bg flashes for an
+   instant. Setting it to cream on mobile matches the hero/IntroSection
+   so any flash blends in instead of showing footer-blue. Desktop body
+   stays #157c99 to support the footer reveal at the bottom. */
+@media (max-width: 767px) {
+  body {
+    background: #F5F0E8;
+  }
+}
+
 h2, h3, h4, h5, h6 {
   font-weight: 700 !important;
 }

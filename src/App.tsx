@@ -11,6 +11,7 @@ import NotFound from '@/pages/NotFound'
 import DonutScene from '@/components/DonutScene'
 import HandScene from '@/components/HandScene'
 import PageLoader from '@/components/PageLoader'
+import CurtainOverlay from '@/components/CurtainOverlay'
 
 export default function App() {
   const location = useLocation()
@@ -37,6 +38,9 @@ export default function App() {
           </Route>
         </Routes>
       </AnimatePresence>
+      {/* Sweeps up across the viewport on every route change, hiding the
+          underlying page swap (and the footer that would otherwise flash). */}
+      <CurtainOverlay />
       {isHome && (
         <>
           <DonutScene />
