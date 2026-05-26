@@ -10,6 +10,7 @@ import Order from '@/pages/Order'
 import NotFound from '@/pages/NotFound'
 import DonutScene from '@/components/DonutScene'
 import HandScene from '@/components/HandScene'
+import PageLoader from '@/components/PageLoader'
 
 export default function App() {
   const location = useLocation()
@@ -22,6 +23,7 @@ export default function App() {
 
   return (
     <>
+      <PageLoader />
       <ScrollToTop />
       <AnimatePresence mode="wait" initial={false}>
         <Routes location={location} key={location.pathname}>

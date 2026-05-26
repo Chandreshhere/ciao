@@ -1,6 +1,11 @@
 import { motion, useScroll, useTransform, useMotionTemplate, easeOut } from 'framer-motion'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
+// Wait for the PageLoader to start its exit before kicking off the hero's
+// own entrance — the text reveals land just as the loader is sliding
+// away, making it feel like the overlay is unveiling the headline.
+const HERO_DELAY = 2.0
+
 // One line of hero text that reveals on load: it sits in an overflow clip and
 // slides up into place from below — landing exactly where it sits, so it
 // "reveals in line" rather than flying in. Plays on mount (i.e. on reload).
@@ -78,20 +83,31 @@ export default function Hero() {
         className="sticky top-0 h-screen w-full overflow-hidden"
       >
         <div className="absolute inset-0 overflow-hidden">
-          <motion.img
-            src="/hero.png"
-            alt="French Patisserie"
-            // object-center on mobile so the subject sits in frame; reverts
-            // to the original `left center` crop at md+ to preserve the
-            // desktop composition exactly.
-            className="w-full h-full object-cover object-center md:object-left"
-            style={{
-              x: isMobile ? '-4%' : '-1.2%',
-              scale: imageScale,
-              y: imageY,
-              filter: imageFilter,
-            }}
-          />
+          {/* Image is wrapped so the entrance animation (opacity fade)
+              composes cleanly on top of the scroll-driven transforms
+              applied to the <motion.img> itself. Delay matches the
+              page-loader exit. */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1.4, ease: 'easeOut', delay: HERO_DELAY }}
+            className="absolute inset-0"
+          >
+            <motion.img
+              src="/hero.png"
+              alt="French Patisserie"
+              // object-center on mobile so the subject sits in frame; reverts
+              // to the original `left center` crop at md+ to preserve the
+              // desktop composition exactly.
+              className="w-full h-full object-cover object-center md:object-left"
+              style={{
+                x: isMobile ? '-4%' : '-1.2%',
+                scale: imageScale,
+                y: imageY,
+                filter: imageFilter,
+              }}
+            />
+          </motion.div>
         </div>
 
         {/* Main hero statement — bottom-left, big and uppercase.
@@ -101,8 +117,8 @@ export default function Hero() {
           <motion.div style={{ y: headlineY }}>
             {/* Heavy 900 "Satt" cut of Apfel Grotezk — wired up in index.css. */}
             <h1 className="text-[13vw] md:text-[9vw] font-black uppercase leading-[0.9] tracking-wide text-white text-left">
-              <Reveal delay={0.15}>Crafted in</Reveal>
-              <Reveal delay={0.28}>Paris.</Reveal>
+              <Reveal delay={HERO_DELAY + 0.15}>Crafted in</Reveal>
+              <Reveal delay={HERO_DELAY + 0.28}>Paris.</Reveal>
             </h1>
           </motion.div>
         </div>
@@ -114,9 +130,9 @@ export default function Hero() {
         <div className="absolute right-5 top-20 z-10 max-w-[78vw] text-right md:right-16 md:top-32 md:max-w-xl">
           <motion.div style={{ y: topRightY }}>
             <p className="text-white text-sm leading-snug font-black md:text-3xl md:leading-relaxed">
-              <Reveal delay={0.4}>Modern French pâtisserie</Reveal>
-              <Reveal delay={0.5}>macarons, éclairs, entremets,</Reveal>
-              <Reveal delay={0.6}>and bespoke celebration cakes.</Reveal>
+              <Reveal delay={HERO_DELAY + 0.4}>Modern French pâtisserie</Reveal>
+              <Reveal delay={HERO_DELAY + 0.5}>macarons, éclairs, entremets,</Reveal>
+              <Reveal delay={HERO_DELAY + 0.6}>and bespoke celebration cakes.</Reveal>
             </p>
           </motion.div>
         </div>
@@ -129,10 +145,10 @@ export default function Hero() {
         <div className="absolute bottom-32 right-5 z-10 max-w-[60vw] text-right md:bottom-12 md:right-16 md:max-w-md">
           <motion.div style={{ y: bottomY }}>
             <p className="text-white text-[10px] tracking-[0.3em] mb-2 font-black md:text-base md:mb-4">
-              <Reveal delay={0.5}>FRENCH PÂTISSERIE · GURGAON</Reveal>
+              <Reveal delay={HERO_DELAY + 0.5}>FRENCH PÂTISSERIE · GURGAON</Reveal>
             </p>
             <p className="text-white text-lg leading-tight font-black md:text-3xl">
-              <Reveal delay={0.62}>Made for You.</Reveal>
+              <Reveal delay={HERO_DELAY + 0.62}>Made for You.</Reveal>
             </p>
           </motion.div>
         </div>
