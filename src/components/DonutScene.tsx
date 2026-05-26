@@ -98,7 +98,7 @@ export default function DonutScene() {
     // translated to the right by the scroll-driven roll-off. z-40 so the donut
     // overlays everything — the intro text (z-30) and the hand (z-20) included
     // — sitting just below the z-50 navbar.
-    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(950px,92vw)] h-[min(950px,92vw)] pointer-events-none z-40">
+    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vw] h-[150vw] md:w-[min(950px,92vw)] md:h-[min(950px,92vw)] pointer-events-none z-40">
       <div ref={innerRef} className="w-full h-full will-change-transform">
         <Canvas
           frameloop="demand"

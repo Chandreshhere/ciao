@@ -1,4 +1,5 @@
-import { forwardRef, useState } from 'react'
+import { forwardRef } from 'react'
+import ProductCard, { type Product } from './ProductCard'
 
 // "Bestsellers" — a tilted, continuously-scrolling marquee of the word
 // (alternating filled and outlined) sits behind a row of five small,
@@ -6,18 +7,6 @@ import { forwardRef, useState } from 'react'
 // ingredient pills out at scattered spots over the image. Product imagery is a
 // placeholder for now — drop real images into `public/` and wire an `image`
 // field once supplied.
-interface Pill {
-  label: string
-  left: string
-  top: string
-  rotate: number
-}
-interface Product {
-  name: string
-  meta: string
-  image: string
-  pills: Pill[]
-}
 
 const PRODUCTS: Product[] = [
   {
@@ -72,48 +61,6 @@ const PRODUCTS: Product[] = [
   },
 ]
 
-function ProductCard({ product }: { product: Product }) {
-  const [hovered, setHovered] = useState(false)
-
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="flex flex-col rounded-[1.75rem] border-2 border-[#157c99] bg-[#FBF8EF] p-3 md:p-4"
-    >
-      {/* Image area + the three pop-up ingredient pills */}
-      <div className="relative mb-4 aspect-square overflow-hidden rounded-[1.25rem] bg-[#ECE4D2]">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="h-full w-full object-cover"
-        />
-        {product.pills.map((pill, i) => (
-          <span
-            key={pill.label}
-            style={{
-              left: pill.left,
-              top: pill.top,
-              transform: `${hovered ? 'scale(1)' : 'scale(0)'} rotate(${pill.rotate}deg)`,
-              opacity: hovered ? 1 : 0,
-              transition: `transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) ${i * 80}ms, opacity 0.25s ${i * 80}ms`,
-            }}
-            className="absolute origin-center whitespace-nowrap rounded-full bg-pink-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-[#2b211c]"
-          >
-            {pill.label}
-          </span>
-        ))}
-      </div>
-
-      {/* Name + meta — blue, heavy 900 Satt */}
-      <h3 className="font-satt text-base font-black uppercase leading-[1.1] tracking-tight text-[#157c99] md:text-lg">
-        {product.name}
-      </h3>
-      <p className="mt-1.5 text-xs font-bold text-[#157c99]/70">{product.meta}</p>
-    </div>
-  )
-}
-
 // Forwarded so the parent can pass a ref through — the CelebrateDonut needs
 // this section's bounding box to know when to start its choreography (the
 // donut emerges from off-screen left as Bestsellers enters the viewport).
@@ -139,7 +86,10 @@ const BestsellersSection = forwardRef<HTMLElement>((_props, ref) => {
                 {Array.from({ length: 6 }).map((_, i) => (
                   <span
                     key={i}
-                    className="font-satt px-5 text-[8vw] font-black uppercase leading-[0.85] tracking-tighter"
+                    // Mobile gets a much larger marquee (text-[20vw]) so the
+                    // word reads as a hero motif behind the cards; desktop
+                    // stays at the original text-[8vw] composition.
+                    className="font-satt px-5 text-[20vw] md:text-[8vw] font-black uppercase leading-[0.85] tracking-tighter"
                     style={
                       (i + row) % 2 === 0
                         ? { color: '#157c99' }
@@ -160,11 +110,27 @@ const BestsellersSection = forwardRef<HTMLElement>((_props, ref) => {
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-40 bg-gradient-to-b from-[#F5F0E8] to-transparent md:h-56" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-40 bg-gradient-to-t from-[#F5F0E8] to-transparent md:h-56" />
 
-      {/* Cards — five small cards in one line */}
+      {/* Cards — five small cards in one line.
+          On mobile the 2-col grid leaves the 5th card as an orphan in
+          the left column. Wrapping it lets us span both columns at
+          single-col width + justify-self-center, so it sits centred.
+          The wrapper has no max-md classes that apply at md+, so the
+          5-col desktop layout is unchanged. */}
       <div className="relative z-10 mx-auto grid max-w-[1500px] grid-cols-2 gap-4 px-6 md:grid-cols-5 md:gap-5 md:px-12">
-        {PRODUCTS.map((product) => (
-          <ProductCard key={product.name} product={product} />
-        ))}
+        {PRODUCTS.map((product, i) => {
+          const isLast = i === PRODUCTS.length - 1
+          if (isLast) {
+            return (
+              <div
+                key={product.name}
+                className="max-md:col-span-2 max-md:justify-self-center max-md:w-[calc(50%-0.5rem)]"
+              >
+                <ProductCard product={product} />
+              </div>
+            )
+          }
+          return <ProductCard key={product.name} product={product} />
+        })}
       </div>
     </section>
   )

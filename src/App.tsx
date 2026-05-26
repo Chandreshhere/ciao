@@ -1,52 +1,46 @@
-import { useRef } from 'react'
-import Hero from '@/components/Hero'
-import Navbar from '@/components/Navbar'
-import IntroSection from '@/components/IntroSection'
-import BestsellersSection from '@/components/BestsellersSection'
-import CelebrateSection from '@/components/CelebrateSection'
-import SweetMarquee from '@/components/SweetMarquee'
-import AboutSection from '@/components/AboutSection'
-import CelebrationSection from '@/components/CelebrationSection'
-import NewsletterSection from '@/components/NewsletterSection'
-import Footer from '@/components/Footer'
-import SmoothScroll from '@/components/SmoothScroll'
+import { Routes, Route, useLocation } from 'react-router-dom'
+import { AnimatePresence } from 'framer-motion'
+import ScrollToTop from '@/components/layout/ScrollToTop'
+import Layout from '@/components/layout/Layout'
+import Home from '@/pages/Home'
+import Creations from '@/pages/Creations'
+import Menu from '@/pages/Menu'
+import TheChef from '@/pages/TheChef'
+import Order from '@/pages/Order'
+import NotFound from '@/pages/NotFound'
 import DonutScene from '@/components/DonutScene'
 import HandScene from '@/components/HandScene'
 
 export default function App() {
-  // Shared anchor: CelebrateDonut starts its journey as Bestsellers enters
-  // the viewport (it slides in from off-screen left), so the donut needs to
-  // know where that section lives in the layout.
-  const bestsellersRef = useRef<HTMLElement>(null)
+  const location = useLocation()
+  // 3D donut + hand are fixed-position z-40 layers. They must live OUTSIDE
+  // Layout's `<main class="relative z-10">` wrapper or that stacking
+  // context caps their z-index. Mounting them at App.tsx level, gated by
+  // pathname, keeps them only on Home and out of the main stacking
+  // context everywhere.
+  const isHome = location.pathname === '/'
 
   return (
-    <SmoothScroll>
-      <Navbar />
-      {/* Main content stack — sits ABOVE the fixed footer. Each section
-          carries its own cream background, so the wrapper itself stays
-          transparent: that lets the last section's rounded bottom corners
-          actually cut into the blue footer beneath. `mb-[50vh]` reserves
-          enough scroll for the footer to be revealed about halfway. */}
-      <div className="relative z-10 mb-[50vh]">
-        <Hero />
-        {/* IntroSection is the pinned "section after the hero": its tall
-            container gives the donut + hand choreography its scroll room
-            while the intro text holds on top. */}
-        <IntroSection />
-        <BestsellersSection ref={bestsellersRef} />
-        <CelebrateSection bestsellersRef={bestsellersRef} />
-        <SweetMarquee />
-        <AboutSection />
-        <CelebrationSection />
-        <NewsletterSection />
-      </div>
-      {/* DonutScene + HandScene are fixed-positioned layers — moved out
-          of Hero (and out of the wrapper's z-10 stacking context) so
-          their z-40 sits ABOVE the wrapper globally and they remain
-          visible throughout the page instead of being capped to z-10. */}
-      <DonutScene />
-      <HandScene />
-      <Footer />
-    </SmoothScroll>
+    <>
+      <ScrollToTop />
+      <AnimatePresence mode="wait" initial={false}>
+        <Routes location={location} key={location.pathname}>
+          <Route element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="creations" element={<Creations />} />
+            <Route path="menu" element={<Menu />} />
+            <Route path="the-chef" element={<TheChef />} />
+            <Route path="order" element={<Order />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </AnimatePresence>
+      {isHome && (
+        <>
+          <DonutScene />
+          <HandScene />
+        </>
+      )}
+    </>
   )
 }

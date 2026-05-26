@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform, useMotionTemplate, easeOut } from 'framer-motion'
-import { useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 // One line of hero text that reveals on load: it sits in an overflow clip and
 // slides up into place from below — landing exactly where it sits, so it
@@ -29,6 +29,18 @@ function Reveal({ children, delay = 0 }: { children: ReactNode; delay?: number }
 export default function Hero() {
   const sectionRef = useRef<HTMLElement>(null)
 
+  // Mobile-only image translate. Framer Motion's `x` is set inline; we can't
+  // override it via Tailwind responsive classes, so we toggle the value with
+  // a matchMedia listener. Desktop keeps its original -1.2% composition.
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
   // Progress across the whole 200vh hero: 0 at the top, 0.5 once the pinned
   // viewport ends, 1 once the hero has fully scrolled away.
   const { scrollYProgress } = useScroll({
@@ -53,7 +65,14 @@ export default function Hero() {
   const imageFilter = useMotionTemplate`blur(${blurPx}px)`
 
   return (
-    <section ref={sectionRef} className="relative h-[200vh] w-full">
+    <section
+      ref={sectionRef}
+      // bg-[#F5F0E8] on mobile fills behind the sticky hero so the
+      // motion.div's rounded bottom corners reveal cream (matching the
+      // IntroSection below) instead of the blue body. Reset to transparent
+      // on md+ so desktop stays exactly as before.
+      className="relative h-[200vh] w-full bg-[#F5F0E8] md:bg-transparent"
+    >
       <motion.div
         style={{ borderBottomLeftRadius: radius, borderBottomRightRadius: radius }}
         className="sticky top-0 h-screen w-full overflow-hidden"
@@ -62,10 +81,12 @@ export default function Hero() {
           <motion.img
             src="/hero.png"
             alt="French Patisserie"
-            className="w-full h-full object-cover"
+            // object-center on mobile so the subject sits in frame; reverts
+            // to the original `left center` crop at md+ to preserve the
+            // desktop composition exactly.
+            className="w-full h-full object-cover object-center md:object-left"
             style={{
-              objectPosition: 'left center',
-              x: '-1.2%',
+              x: isMobile ? '-4%' : '-1.2%',
               scale: imageScale,
               y: imageY,
               filter: imageFilter,
@@ -73,8 +94,10 @@ export default function Hero() {
           />
         </div>
 
-        {/* Main hero statement — bottom-left, big and uppercase */}
-        <div className="absolute left-16 bottom-12 z-10">
+        {/* Main hero statement — bottom-left, big and uppercase.
+            Desktop offsets (left-16, bottom-12) preserved at md+; mobile
+            uses tighter offsets so it doesn't get clipped on small screens. */}
+        <div className="absolute left-5 bottom-6 z-10 md:left-16 md:bottom-12">
           <motion.div style={{ y: headlineY }}>
             {/* Heavy 900 "Satt" cut of Apfel Grotezk — wired up in index.css. */}
             <h1 className="text-[13vw] md:text-[9vw] font-black uppercase leading-[0.9] tracking-wide text-white text-left">
@@ -84,10 +107,13 @@ export default function Hero() {
           </motion.div>
         </div>
 
-        {/* Product line — moved to the top-right */}
-        <div className="absolute right-16 top-32 z-10 max-w-xl text-right">
+        {/* Product line — top-right.
+            On mobile, sits just below the header at top-20 with a tighter
+            right offset, capped to ~78vw so it can never overflow the
+            viewport or collide with anything on the left. */}
+        <div className="absolute right-5 top-20 z-10 max-w-[78vw] text-right md:right-16 md:top-32 md:max-w-xl">
           <motion.div style={{ y: topRightY }}>
-            <p className="text-white text-2xl md:text-3xl leading-relaxed font-black">
+            <p className="text-white text-sm leading-snug font-black md:text-3xl md:leading-relaxed">
               <Reveal delay={0.4}>Modern French pâtisserie</Reveal>
               <Reveal delay={0.5}>macarons, éclairs, entremets,</Reveal>
               <Reveal delay={0.6}>and bespoke celebration cakes.</Reveal>
@@ -95,13 +121,17 @@ export default function Hero() {
           </motion.div>
         </div>
 
-        {/* Supporting text — bottom-right */}
-        <div className="absolute bottom-12 right-16 z-10 max-w-md text-right">
+        {/* Supporting text — bottom-right.
+            On mobile, lifted to `bottom-32` so it floats clear above the
+            bottom-left "Crafted in Paris" headline (which spans ~92vw at
+            text-[13vw]). Returns to `bottom-12` at md+ where there's
+            enough horizontal room for both blocks to coexist. */}
+        <div className="absolute bottom-32 right-5 z-10 max-w-[60vw] text-right md:bottom-12 md:right-16 md:max-w-md">
           <motion.div style={{ y: bottomY }}>
-            <p className="text-white text-sm md:text-base tracking-[0.3em] mb-4 font-black">
+            <p className="text-white text-[10px] tracking-[0.3em] mb-2 font-black md:text-base md:mb-4">
               <Reveal delay={0.5}>FRENCH PÂTISSERIE · GURGAON</Reveal>
             </p>
-            <p className="text-white text-2xl md:text-3xl font-black leading-tight">
+            <p className="text-white text-lg leading-tight font-black md:text-3xl">
               <Reveal delay={0.62}>Made for You.</Reveal>
             </p>
           </motion.div>

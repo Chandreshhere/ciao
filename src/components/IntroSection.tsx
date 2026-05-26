@@ -14,19 +14,22 @@ const SEGMENTS = [
   {
     text: "We are centrally located in Sector 58, Gurgaon. Stop by for a coffee, catch up on work, or grab some of our delicious goodies to go. With cookies and cakes available for online order, there's something for everyone, and every occasion.",
     className:
-      'text-base font-bold leading-snug text-[#157c99] md:text-[1.35vw] md:self-end',
+      // Base (mobile): smaller body size, right-aligned, self-end to drop
+      // it to the bottom of the bordered card. All three are reset on md+
+      // so desktop keeps its original left-aligned, larger composition.
+      'text-sm font-bold leading-snug text-[#157c99] text-right self-end md:text-[1.35vw] md:text-left md:self-end',
   },
 ]
 
 // Card-shaped image wrappers that scroll-reveal inside the box — the same
 // rounded, blue-bordered shape as the Bestsellers product cards. Placed in the
 // box's empty zones (the anti-diagonal to the top-left heading / bottom-right
-// paragraph). Images are placeholders — I can't pull photos off the web; drop
-// real transparent images into `public/` and swap the placeholder for an <img>.
+// paragraph). `size` is the desktop pixel width; `mobileSize` shrinks it
+// proportionally on small viewports so cards never overlap the falling text.
 const IMAGE_CARDS = [
-  { left: '79%', top: '21%', size: 156, rotate: 6, delay: 0, image: '/gallery/product-14.png' },
-  { left: '21%', top: '72%', size: 168, rotate: -7, delay: 130, image: '/gallery/product-15.png' },
-  { left: '52%', top: '47%', size: 144, rotate: 4, delay: 260, image: '/gallery/product-16.png' },
+  { left: '79%', top: '21%', size: 156, mobileSize: 92, rotate: 6, delay: 0, image: '/gallery/product-14.png' },
+  { left: '21%', top: '72%', size: 168, mobileSize: 96, rotate: -7, delay: 130, image: '/gallery/product-15.png' },
+  { left: '52%', top: '47%', size: 144, mobileSize: 86, rotate: 4, delay: 260, image: '/gallery/product-16.png' },
 ]
 
 // The pinned "section after the hero" — see DonutScene / HandScene for the
@@ -67,7 +70,7 @@ export default function IntroSection() {
           start={donutOut}
           segments={SEGMENTS}
           gravity={0.9}
-          contentClassName="grid h-full items-start gap-10 p-6 md:grid-cols-2 md:grid-rows-1 md:gap-16 md:p-10"
+          contentClassName="grid h-full items-start gap-10 p-6 grid-rows-[auto_1fr] md:grid-cols-2 md:grid-rows-1 md:gap-16 md:p-10"
           className="h-[74vh] w-full max-w-[1400px] rounded-[2.75rem] border-2 border-[#157c99] bg-[#FBF8EF]"
         >
           {/* Image cards — same rounded, blue-bordered shape as the Bestsellers
@@ -78,12 +81,15 @@ export default function IntroSection() {
               style={{
                 left: c.left,
                 top: c.top,
-                width: c.size,
+                // Fluid width: clamp scales between the mobile and desktop
+                // pixel sizes by viewport width, so cards stay proportional
+                // and never overlap the falling text on small screens.
+                width: `clamp(${c.mobileSize}px, ${c.size * 0.15}vw, ${c.size}px)`,
                 transform: `translate(-50%, -50%) ${cardsIn ? 'scale(1)' : 'scale(0.5)'} rotate(${c.rotate}deg)`,
                 opacity: cardsIn ? 1 : 0,
                 transition: `transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${c.delay}ms, opacity 0.4s ${c.delay}ms`,
               }}
-              className="pointer-events-none absolute rounded-[1.75rem] border-2 border-[#157c99] bg-[#FBF8EF] p-2.5"
+              className="pointer-events-none absolute rounded-[1.75rem] border-2 border-[#157c99] bg-[#FBF8EF] p-2 md:p-2.5"
             >
               <div className="aspect-square overflow-hidden rounded-[1.1rem] bg-[#ECE4D2]">
                 <img
