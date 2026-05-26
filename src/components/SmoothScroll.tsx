@@ -2,6 +2,14 @@ import { useEffect } from 'react'
 
 export default function SmoothScroll({ children }: { children: React.ReactNode }) {
   useEffect(() => {
+    // Skip Lenis on mobile — even with `smoothTouch: false`, Lenis still
+    // intercepts scroll events, which on touch devices causes visible lag
+    // between the finger position and the rendered scroll position, and
+    // interferes with sticky / fixed elements (looks like "the layout is
+    // shifting on drag"). On mobile we let the browser handle touch
+    // scrolling natively; Lenis is purely a desktop wheel-smoothing thing.
+    if (window.matchMedia('(max-width: 767px)').matches) return
+
     let lenisInstance: any = null
 
     const initLenis = async () => {

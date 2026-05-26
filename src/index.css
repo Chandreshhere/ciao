@@ -57,6 +57,17 @@ body {
   font-weight: 700 !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Kill the iOS / Android rubber-band overscroll: when the user
+     drags past the top or bottom of the page, the browser bounces
+     the document. That bounce shifts the fixed footer + sticky
+     sections into wrong positions and reads as a "layout shift on
+     drag". `overscroll-behavior: none` locks both edges so the page
+     refuses to scroll past its real bounds. */
+  overscroll-behavior: none;
+}
+
+html {
+  overscroll-behavior: none;
 }
 
 h2, h3, h4, h5, h6 {
